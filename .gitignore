@@ -1,10 +1,30 @@
-.venv/
-__pycache__/
-*.pyc
-.ipynb_checkpoints/
-data/
-!data/**/.gitkeep
+# Data
+# Anchored to the project root on purpose: an unanchored "data/" also matches
+# src/uplift/data/, which is the ingest package, not a dataset. Nothing under
+# data/ is versioned, not even a .gitkeep: git does not descend into an excluded
+# directory, so a "!" exception below this rule could never take effect. The
+# scripts create data/raw/ and data/processed/ themselves.
+/data/
 *.csv
+*.gz
 *.parquet
 *.pkl
 *.joblib
+
+# Credentials
+.env
+*.pem
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.ipynb_checkpoints/
+.pytest_cache/
+.ruff_cache/
+
+# Run outputs. reports/data_summary.json IS versioned: the published dataset
+# figures come from it. The memory probe is machine specific and stays local.
+reports/peak_memory.json
+reports/*.parquet
+reports/*.csv
