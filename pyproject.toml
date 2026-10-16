@@ -1,0 +1,33 @@
+[project]
+name = "uplift"
+version = "0.1.0"
+description = "Budget-constrained targeting by incremental effect on the Criteo-UPLIFT randomized experiment"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/uplift"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+
+# The rule set is declared, not inherited: left implicit, it is whatever the
+# installed ruff decides that day. E501 is added because the formatter does not
+# cover it: `ruff format` rewraps code, never the text inside a comment or a
+# string.
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "E501"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.17.1",
+]
