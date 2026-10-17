@@ -353,6 +353,36 @@ and in `config.py`, and not extended.
 Scenario 2 replicates the 85/15 of Criteo: the simulation predicts which learner
 should win on the real data, and that prediction is checked.
 
+**The generator, fixed on 2026-10-17 before any learner existed.** Its values
+live in `SimulationConfig`, in `config.py`.
+
+- **Covariates.** $X \sim N(0, I_{12})$, stored as `float32` like the real
+  features.
+- **Baseline.** $\mu_0(x) = \sigma(a + \eta(x))$, with $\sigma$ the logistic
+  function. The simple baseline is linear, $\eta(x) = 0.6\,x_1 + 0.4\,x_2 -
+  0.3\,x_3$. The complex one (scenario 3) is
+  $\eta(x) = 0.8 \sin(2 x_1) + 0.6\,x_2 x_3 + 0.5\,|x_4| - 0.4\,x_5^2 + 0.3\,x_6$.
+  The intercept $a$ is found by bisection so that the mean of $\mu_0$ over a
+  fixed, seeded calibration sample equals the base rate.
+- **Effect,** on the probability scale, with mean $\bar\tau$ = a fixed relative
+  lift times the base rate (0.25: the measured lift on `visit` is of that order).
+  Heterogeneous: $\tau(x) = 2\bar\tau\,\sigma(x_1 + x_7)$, which depends on a
+  baseline covariate and on one the baseline does not use. Step (scenario 3):
+  $\tau(x) = 2\bar\tau\,\mathbb{1}[x_7 > 0]$. Null (scenario 4): $\tau \equiv 0$.
+  Sleeping dogs (scenario 5): $\tau(x) = \bar\tau\,(1 + 2 \tanh x_7)$, negative
+  for about 29 % of units, down to $-\bar\tau$. Each has mean $\bar\tau$ (or 0)
+  by symmetry of $X$.
+- **Propensity.** Constant at the treatment ratio, or, in scenario 6,
+  $e(x) = \sigma(\mathrm{logit}(0.85) + 1.5\,x_1)$: $x_1$ moves the baseline,
+  the effect and the assignment, so ignoring it confounds, and overlap thins
+  where $e(x)$ nears 1.
+- **The grid** is eight configurations, each scenario changing one thing from a
+  reference (base rate 0.05, ratio 0.85, simple baseline, heterogeneous effect,
+  constant propensity): base rates 0.003 and 0.20 (scenario 1, with the
+  reference as the middle one), ratio 0.5 (scenario 2, with the reference as the
+  85/15 one), the complex baseline with the step effect, the null effect, the
+  sleeping dogs and the confounded propensity.
+
 **The metric.** For each scenario and learner, over $R$ replications with sample
 size $n$ (both fixed in `config.py` before running):
 
