@@ -1,6 +1,6 @@
-# make data | split | memory | test | lint | format
+# make data | split | propensity | memory | test | lint | format
 
-.PHONY: data split memory test lint format
+.PHONY: data split propensity memory test lint format
 
 data:            ## Download Criteo-UPLIFT (checksum verified) and stream it into Parquet
 	./scripts/download_data.sh
@@ -8,6 +8,9 @@ data:            ## Download Criteo-UPLIFT (checksum verified) and stream it int
 
 split:           ## Stratified train/val/test split (needs `make data` and src/uplift/config.py)
 	uv run python -m uplift.data.split
+
+propensity:      ## Balance and propensity check, before any ATE (needs `make split`)
+	uv run python -m uplift.propensity_check
 
 memory:          ## Peak memory of ingest, split and a full-train fit, 2 threads (needs `make data`)
 	uv run python scripts/peak_memory.py

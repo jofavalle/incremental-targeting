@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "lightgbm>=4.7.0",
+    "matplotlib>=3.11.2",
     "numpy>=2.4.6",
     "pyarrow>=26.0.0",
     "scipy>=1.17.1",
