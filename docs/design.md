@@ -13,8 +13,8 @@ They are the split seed and fractions, the simulation grid with its sample size
 definitions of the evaluation curves in section 7, the AUC threshold of the
 propensity check (section 6.4) and the multiplicity correction of the power
 analysis (section 8.2). Their values live in `src/uplift/config.py`, and each
-one is committed there before the code that evaluates it, so the history of that
-file shows that it was fixed first.
+one is committed there before any result that depends on it, so the history
+shows that it was fixed first.
 
 Every figure quoted here is of one of three kinds, and says which: measured by
 a run that wrote a JSON file under `reports/` with the machine, the package
@@ -217,8 +217,8 @@ treatment share of each partition, and no outcome broken down by arm.
 Stratifying by the outcomes has a consequence that must be said. With exact
 cuts in every cell of treatment and outcome, the two-by-two table of each
 partition is that of the whole dataset up to rounding, so **the ATE is the same
-in every partition by construction**: the ATE measured in H2 on train is,
-numerically, the ATE of the test. The single look protects the evaluation of
+in every partition by construction**: the ATE measured on train, before any
+model, is numerically the ATE of the test. The single look protects the evaluation of
 the CATE (the ranking, the curves, the policies), not the ATE. Stratifying by
 treatment alone would leave the outcome counts of the test to sampling noise
 (about 1 % on the count of conversions, derived) and keep its ATE unknown until
@@ -460,7 +460,8 @@ so.
 ## 8. Power analysis
 
 The power analysis decides the primary outcome (section 3.2) and is a result in
-itself. This section fixes its method; the numbers come from H2.
+itself. This section fixes its method; the numbers come from its run, before
+any CATE model is fitted.
 
 ### 8.1 Power for the ATE
 
@@ -474,9 +475,9 @@ is the binding one. Two choices make the calculation honest:
 
 - **The sample is the one evaluated**, the test partition (about 419 thousand
   controls), not the full dataset.
-- **The rates are the measured ones**: $p_0$ is the control rate measured in H2,
-  and the MDE is compared with the ATE measured in H2, not with an assumed
-  relative lift.
+- **The rates are the measured ones**: $p_0$ is the measured control rate, and
+  the MDE is compared with the measured ATE, not with an assumed relative
+  lift.
 
 If the propensity is not constant (section 2.3), the variance is that of the
 weighted estimator, larger than the formula above, and the calculation uses it.

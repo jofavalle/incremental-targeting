@@ -68,30 +68,32 @@ Each one is argued in `docs/design.md`.
 1. **Intention to treat, and `exposure` is never a feature** (§3.3). `exposure`
    records whether the ad was actually displayed, which depends on the user's
    own browsing after assignment: only 3.6 % of the treated were exposed.
-   Conditioning on it destroys the randomization.
-   [`tests/test_no_exposure_leakage.py`](tests/test_no_exposure_leakage.py) makes
-   that impossible to do by accident.
+   Conditioning on it destroys the randomization. Models see the data only
+   through one feature matrix, selected by name, and
+   [`tests/test_no_exposure_leakage.py`](tests/test_no_exposure_leakage.py)
+   checks that `exposure` cannot enter it.
 2. **A random split, not a temporal one, and never by position** (§3.4, §4). A
    randomized experiment has no time axis. But the source file is sorted by
    treatment, in thirteen runs (the first is 5,571,799 treated users in a row),
    so a positional cut gives one-arm partitions and the row position predicts
-   the treatment: it gets the same guard as `exposure`. The split is random,
-   stratified by treatment and both outcomes, 60/20/20, and the test partition
-   is looked at once.
+   the treatment: `row_id` is kept out of the feature matrix by the same test,
+   and any subset must be drawn by permutation, never as a contiguous slice.
+   The split is random, stratified by treatment and both outcomes, 60/20/20,
+   and the test partition is looked at once.
 3. **Estimators validated against simulated truth before they touch real data**
    (§6). The error of an uplift model cannot be computed on real data, because a
    user's counterfactual is never observed. A Monte Carlo study over six regimes,
    where the truth is known, will measure each learner's error (PEHE) and predict
    which one should win on Criteo. On the real data the learner is chosen with
    the transformed outcome, on the validation partition only.
-4. **Four meta-learners, each written by hand** (§5): S, T, X and a doubly robust
-   learner with cross-fitting, all on LightGBM, so the comparison is between
-   meta-learners and not between base models.
+4. **Four meta-learners, each to be written by hand** (§5): S, T, X and a doubly
+   robust learner with cross-fitting, all on LightGBM, so that the comparison is
+   between meta-learners and not between base models.
 5. **Every result with an error bar, every assumption fixed first** (§7 to §9).
-   Costs, budgets and thresholds are committed to
-   [`src/uplift/config.py`](src/uplift/config.py) before the code that evaluates
-   them, and the budget-return curve is published whole, including where uplift
-   targeting does not win.
+   Each value in [`src/uplift/config.py`](src/uplift/config.py) is committed
+   before any result that depends on it: today the split; the costs, budgets
+   and thresholds will follow the same rule. The budget-return curve will be
+   published whole, including where uplift targeting does not win.
 
 ## Results
 
@@ -122,8 +124,8 @@ the conclusion looks better.
   at this sample size. The power analysis decides, before any model is fitted.
 - The costs and the value of a conversion are assumptions, swept over ranges
   fixed in advance.
-- The constant propensity of a randomized design is checked first, but a check
-  on the features can only refute it, never confirm it (§2.3).
+- The constant propensity of a randomized design will be checked first, but a
+  check on the features can only refute it, never confirm it (§2.3).
 
 ## Run it
 
@@ -143,8 +145,9 @@ make memory    # peak memory of each stage, with 2 threads
 ```
 
 `make data` writes `reports/data_summary.json` and `make split` writes
-`reports/split_summary.json`; every figure quoted in this repository comes from
-one of those records, or is derived from them by arithmetic.
+`reports/split_summary.json`. Every figure quoted in this repository comes from
+one of those records, is derived from them by arithmetic, or is quoted from the
+source, which is named.
 
 ## Repository structure
 
