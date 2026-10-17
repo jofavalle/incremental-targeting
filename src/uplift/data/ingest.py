@@ -2,9 +2,12 @@
 
 The uncompressed CSV is never written to disk. The .gz is decompressed in
 memory block by block, parsed with pyarrow's streaming CSV reader and written
-out in row groups, so peak memory is a couple of row groups and not the
-dataset. It is meant to fit the smallest machine of the project (2 cores,
-3.7 GiB); `make memory` measures it.
+out in row groups, so peak memory is bounded by the reader and a row group, not
+by the dataset. The reader's read-ahead holds a few dozen blocks at once, so
+the block size sets the peak. 1 MiB, pyarrow's default, was the lowest peak of
+the sizes tried, at no cost in speed: the single-threaded gzip decompression is
+the bottleneck. `make memory` measures it, for the smallest machine of the
+project (2 cores, 3.7 GiB).
 
 Types are declared, never inferred: the twelve features as float32 and the four
 binary columns as int8. A `row_id` column records the position of each row in
@@ -55,7 +58,7 @@ DEFAULT_DST = Path("data/processed/criteo_uplift.parquet")
 DEFAULT_SUMMARY = Path("reports/data_summary.json")
 
 ROWS_PER_GROUP = 1 << 20
-BLOCK_SIZE = 16 << 20  # bytes of CSV text per parsed batch
+BLOCK_SIZE = 1 << 20  # bytes of CSV text per parsed batch; see the module docstring
 
 
 def _check_batch(batch: pa.RecordBatch, first_row: int) -> None:
