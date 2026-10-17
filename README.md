@@ -62,15 +62,22 @@ download link on the Criteo page no longer resolves. The data are licensed
 CC BY-NC-SA 4.0 and are never committed here.
 
 **Balance, checked before any effect**
-([`reports/propensity_check.json`](reports/propensity_check.json)). No feature
-differs between the arms by more than 0.05 standardized mean differences. A
-classifier of the treatment on the features, fitted on train, scores an AUC of
-0.5102 on validation (95 % interval 0.5093 to 0.5111). The rule, committed before
-the check ran, treats the propensity as constant unless the lower bound exceeds
-0.51, so the analysis proceeds with a constant propensity. The margin is thin,
-and it is reported as such: that AUC corresponds to a propensity that varies by
-about 0.46 points around 0.85, and the figure shows where, in a tail of users
-the treatment reached more often.
+([`reports/propensity_check.json`](reports/propensity_check.json)). The rule,
+committed before the check ran, treats the propensity as constant unless the
+lower bound of the 95 % interval of an out-of-sample AUC exceeds 0.51. A
+classifier of the treatment on the features, fitted on train, scores 0.5102 on
+validation (0.5093 to 0.5111): the lower bound is under the threshold and the
+point estimate over it, so by the rule the primary analysis proceeds with a
+constant propensity. The arms are not identical, though, and that is reported
+with the same weight. The standardized mean differences are all below 0.05, but
+5 to 50 times their noise level (about 0.001); and they imply a propensity that
+varies by at least 0.68 points around 0.85 (a linear-projection bound whose noise
+floor is 0.04 points), more than the 0.45 points the threshold was translated
+into when it was fixed, a translation that assumed a normal spread. The figure
+shows the skew: a tail of users assigned to the treatment more often. Every
+effect will therefore be reported with sensitivity versions that use an
+estimated propensity, declared before any effect was computed (`docs/design.md`
+§6.5).
 
 ![Estimated propensity by arm, on validation](reports/figures/fig1_propensity_overlap.png)
 
@@ -137,9 +144,10 @@ the conclusion looks better.
   at this sample size. The power analysis decides, before any model is fitted.
 - The costs and the value of a conversion are assumptions, swept over ranges
   fixed in advance.
-- The propensity is treated as constant by a rule fixed in advance, and it
-  passed at the margin. A check on the features can only refute a constant
-  propensity, never confirm it (§2.3).
+- The propensity is treated as constant by a rule fixed in advance, which it
+  passed at the margin, while the features show a small but real spread (§6.4,
+  §6.5). A check on the features can only refute a constant propensity, never
+  confirm it (§2.3).
 
 ## Run it
 
@@ -155,13 +163,15 @@ With the real data:
 ```bash
 make data      # 311 MB, checksum verified, streamed into Parquet: the CSV never hits the disk
 make split     # stratified train/validation/test, seed from config.py
+make propensity  # balance and propensity check, before any effect: about 3 minutes
 make memory    # peak memory of each stage, with 2 threads
 ```
 
-`make data` writes `reports/data_summary.json` and `make split` writes
-`reports/split_summary.json`. Every figure quoted in this repository comes from
-one of those records, is derived from them by arithmetic, or is quoted from the
-source, which is named.
+`make data` writes `reports/data_summary.json`, `make split` writes
+`reports/split_summary.json` and `make propensity` writes
+`reports/propensity_check.json` with its figure. Every figure quoted in this
+repository comes from one of those records, is derived from them by arithmetic,
+or is quoted from the source, which is named.
 
 ## Repository structure
 
@@ -170,12 +180,14 @@ src/uplift/
 ├── config.py         # every value the analysis depends on, fixed before evaluation
 ├── features.py       # the feature matrix: f0 to f11, by name, never by exclusion
 ├── runinfo.py        # machine, versions and threads, recorded with every number
-└── data/             # streaming ingest (CSV.gz to Parquet), stratified split
+├── propensity_check.py  # the balance and propensity check, run before any effect
+├── data/             # streaming ingest (CSV.gz to Parquet), stratified split
+└── evaluate/         # evaluators: balance and propensity so far
 
 tests/                # including the exposure leakage guard; all on synthetic data
 scripts/              # checksum-verified download, peak memory probe
 docs/design.md        # the specification: causal framework, estimators, validation
-reports/              # the run summaries behind every quoted figure
+reports/              # the run records behind every quoted figure, and figures/
 ```
 
 ## License
