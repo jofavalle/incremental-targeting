@@ -33,7 +33,25 @@
     },
     "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.36",
     "python": "3.11.2",
-    "seconds": 16.7
+    "seconds": 17.9
   },
-  "source_file": "criteo-research-uplift-v2.1.csv.gz"
+  "source_file": "criteo-research-uplift-v2.1.csv.gz",
+  "source_order": {
+    "treatment_share_by_row_group": [
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      0.3137,
+      0.5124,
+      0.8259,
+      0.886,
+      0.7463,
+      0.9832,
+      0.9648,
+      0.7679,
+      1.0
+    ]
+  }
 }
