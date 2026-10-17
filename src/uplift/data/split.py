@@ -36,7 +36,7 @@ import argparse
 import contextlib
 import math
 import time
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 
 import numpy as np
@@ -70,6 +70,37 @@ def _check_seed(seed: object) -> int:
     return int(seed)
 
 
+def _stratum_codes(columns: Sequence[np.ndarray]) -> np.ndarray:
+    """The stratum of each row: the binary `columns` read as the bits of one number."""
+    if len(columns) == 0:
+        raise ValueError("Need at least one stratification column.")
+    n_rows = len(columns[0])
+    code = np.zeros(n_rows, dtype=np.uint8)
+    for column in columns:
+        if len(column) != n_rows:
+            raise ValueError("The stratification columns differ in length.")
+        if column.size and (column.min() < 0 or column.max() > 1):
+            raise ValueError("The stratification columns must be binary.")
+        code = code * 2 + column.astype(np.uint8)
+    return code
+
+
+def _shuffled_strata(
+    code: np.ndarray, n_strata: int, rng: np.random.Generator
+) -> Iterator[np.ndarray]:
+    """The rows of each non-empty stratum, shuffled, strata in a fixed order.
+
+    The order of the strata and of the draws is the contract that makes a
+    partition reproducible from its seed: every caller consumes `rng` the same way.
+    """
+    for stratum in range(n_strata):
+        rows = np.flatnonzero(code == stratum)
+        if rows.size == 0:
+            continue
+        rng.shuffle(rows)
+        yield rows
+
+
 def assign_partitions(
     columns: Sequence[np.ndarray], fractions: Sequence[float], seed: int
 ) -> np.ndarray:
@@ -82,22 +113,11 @@ def assign_partitions(
     """
     fractions = _check_fractions(fractions)
     seed = _check_seed(seed)
-    n_rows = len(columns[0])
-    code = np.zeros(n_rows, dtype=np.uint8)
-    for column in columns:
-        if len(column) != n_rows:
-            raise ValueError("The stratification columns differ in length.")
-        if column.size and (column.min() < 0 or column.max() > 1):
-            raise ValueError("The stratification columns must be binary.")
-        code = code * 2 + column.astype(np.uint8)
+    code = _stratum_codes(columns)
 
-    labels = np.full(n_rows, -1, dtype=np.int8)
+    labels = np.full(code.size, -1, dtype=np.int8)
     rng = np.random.default_rng(seed)
-    for stratum in range(2 ** len(columns)):
-        rows = np.flatnonzero(code == stratum)
-        if rows.size == 0:
-            continue
-        rng.shuffle(rows)
+    for rows in _shuffled_strata(code, 2 ** len(columns), rng):
         n_train = round(fractions[0] * rows.size)
         n_val = round(fractions[1] * rows.size)
         labels[rows[:n_train]] = 0
