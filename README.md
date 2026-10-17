@@ -111,8 +111,9 @@ Each one is argued in `docs/design.md`.
    between meta-learners and not between base models.
 5. **Every result with an error bar, every assumption fixed first** (§7 to §9).
    Each value in [`src/uplift/config.py`](src/uplift/config.py) is committed
-   before any result that depends on it: today the split; the costs, budgets
-   and thresholds will follow the same rule. The budget-return curve will be
+   before any result that depends on it: today the split, the propensity check
+   and the settings of the effect estimates; the costs, budgets and thresholds
+   will follow the same rule. The budget-return curve will be
    published whole, including where uplift targeting does not win.
 
 ## Results

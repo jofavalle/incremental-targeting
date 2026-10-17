@@ -5,9 +5,10 @@ the codebase.
 
 Each value is committed before any result that depends on it, so the history
 shows that it was fixed first (docs/design.md §1): an assumption is never bent
-after seeing the results. This version fixes the paths, the split and the
-propensity check. The simulation grid with `n` and `R`, the costs and the grid
-of budgets `K` arrive with their milestones, each one before its evaluation.
+after seeing the results. This version fixes the paths, the split, the
+propensity check and the settings of the effect estimates. The simulation grid
+with `n` and `R`, the costs and the grid of budgets `K` arrive with their
+milestones, each one before its evaluation.
 """
 
 from __future__ import annotations
@@ -101,8 +102,9 @@ class PropensityConfig:
     #: (the usual convention, Austin 2009). Descriptive: they decide nothing.
     smd_flag: float = 0.1
 
-    #: Clip of an estimated propensity, used only if the weighted branch applies:
-    #: it keeps 1 / e and 1 / (1 - e) finite.
+    #: Clip of an estimated propensity, used by the weighted branch if it applies
+    #: and by the weighted sensitivity version of §6.5 (`EffectConfig`): it keeps
+    #: 1 / e and 1 / (1 - e) finite.
     clip: float = 0.01
 
     #: The classifier, LightGBM. Fixed rounds and no early stopping, so no
@@ -119,6 +121,52 @@ class PropensityConfig:
 
 
 # --------------------------------------------------------------------------
+# Effect estimates
+# --------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class EffectConfig:
+    """The ATE and its three sensitivity versions (docs/design.md §2.3, §6.5).
+
+    Fixed on 2026-10-16, after the propensity check and before any effect was
+    estimated. The primary estimate is the difference of means; the weighted,
+    subclassified and block versions go next to it and never replace it. The
+    classifier of the cross-fitted propensity and its clip are those of
+    `PropensityConfig`, unchanged.
+    """
+
+    #: Level of every interval: the normal one of the primary estimate, and the
+    #: bootstrap ones of each version and of its difference from the primary.
+    level: float = 0.95
+
+    #: Folds of the cross-fitted propensity on train. Each model sees 4/5 of
+    #: train, less than the full-train fit `make memory` measured, so it fits
+    #: wherever the propensity check did. Two folds would halve the data of each
+    #: model; ten would double the time for models that see 90 % instead of 80 %.
+    n_folds: int = 5
+
+    #: The folds are stratified by the treatment alone: the model predicts it
+    #: from the features, and no other share per fold matters to it.
+    fold_strata: tuple[str, ...] = ("treatment",)
+
+    #: Cuts of the strata of e_hat, as quantiles of the evaluated partition with
+    #: both arms pooled: the nine deciles and 0.99, so the top 1 % is a stratum of
+    #: its own. Eleven strata, and ties are never split (§6.5).
+    stratum_quantiles: tuple[float, ...] = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.99)
+
+    #: Resamples of the paired bootstrap, one set shared by the three versions.
+    #: At a level of 0.95 each tail of a percentile interval rests on 25 of them.
+    n_bootstrap: int = 1_000
+
+    #: Seeds of the two NumPy draws: the date these values were fixed, with one
+    #: digit per draw. Distinct from each other and from the split seed, because
+    #: one seed on the same columns couples the draws (`uplift.data.split`).
+    fold_seed: int = 202610161
+    bootstrap_seed: int = 202610162
+
+
+# --------------------------------------------------------------------------
 # Everything together
 # --------------------------------------------------------------------------
 
@@ -129,6 +177,7 @@ class Config:
 
     split: SplitConfig = field(default_factory=SplitConfig)
     propensity: PropensityConfig = field(default_factory=PropensityConfig)
+    effect: EffectConfig = field(default_factory=EffectConfig)
 
 
 CONFIG = Config()
