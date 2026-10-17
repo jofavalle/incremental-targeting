@@ -3,15 +3,19 @@
 **Who should a campaign contact when the budget is fixed? The users it changes,
 not the users most likely to convert.**
 
-> **Status (October 2026): the average effect and the power analysis are
-> measured; the simulation study, the learner selection and the test evaluation
-> are under way.** Every setting is fixed in [`docs/design.md`](docs/design.md)
+> **Status (October 2026): the average effect, the power analysis, the learner
+> selection and the test evaluation are measured; the simulation study is
+> running.** Every setting is fixed in [`docs/design.md`](docs/design.md)
 > and `config.py` before the result it governs, and the history shows it. A
 > result that is not measured yet is blank, never filled from an expectation.
 
-**Headline:** incremental conversions per 1,000 of budget, ranking by predicted
-uplift against ranking by propensity to convert, on the held-out test
-partition: **not measured yet**.
+**Headline: on Criteo, ranking by predicted uplift does not beat ranking by
+propensity to convert.** On the held-out test partition, opened once, contacting
+the top 10 % by predicted uplift yields 7.5 incremental conversions per 1,000
+contacts and the top 10 % by propensity 8.2, against 1.2 at random. Across the
+whole grid of budgets the uplift ranking is never ahead, and where the paired
+interval separates the two, it favours propensity. Both rankings beat random
+targeting ten times or more at budgets of 5 % and below.
 
 ---
 
@@ -133,11 +137,11 @@ Each one is argued in `docs/design.md`.
 
 | Result | Value |
 |---|---|
-| Incremental conversions per 1,000 of budget, uplift against propensity ranking | not measured |
+| Incremental conversions per 1,000 contacts at a 10 % budget, uplift against propensity ranking | 7.5 against 8.2 (random: 1.2); uplift never ahead on the grid |
 | PEHE of the four learners across six simulated regimes | not measured |
 | Learner predicted by the simulation, and whether it won on Criteo | not measured |
 | Power analysis: smallest detectable heterogeneity, per outcome | conversion: a decile against the rest, not a percentile; visit: down to 2 % subgroups |
-| AUUC of the chosen learner, with its bootstrap interval | not measured |
+| AUUC of the chosen learner (S), with its bootstrap interval | 0.00045 (0.00038 to 0.00052), the highest of the four |
 
 ### The average effect, and how much it depends on the propensity
 
@@ -200,6 +204,50 @@ Several learners give fewer than ten deciles, because their $\hat\tau$ takes
 few distinct values and ties are never split.
 
 ![Calibration by decile of the predicted uplift, on validation](reports/figures/fig5_calibration.png)
+
+### The test partition, opened once
+
+([`reports/test_evaluation.json`](reports/test_evaluation.json)). Every setting
+was pushed before the ATE was seen (§7.3, §9.5); the break-even estimator was
+amended after an adversarial review and before the test was opened.
+
+**The learners' curves.** On conversion, the S-learner has the largest area over
+the random line, 0.00045 (0.00038 to 0.00052), as it had the best criterion on
+validation. The X-learner's area is not separated from it; the DR- and
+T-learners' are smaller, with paired intervals that exclude zero.
+
+![Uplift curves of the four learners on test](reports/figures/fig6_uplift_curves.png)
+
+**The four policies.** Contacting everybody yields 3,224 incremental
+conversions on the test partition. Policy 4 (top $K$ by the S-learner's
+$\hat\tau$) never yields more than policy 3 (top $K$ by a classifier of
+conversion): it is behind at every capacity below 100 %, where the two
+coincide by construction, by up to 177 conversions, and the paired interval of the difference excludes zero at 2 %,
+10 % and 20 %, always in favour of propensity. Both beat random targeting ten
+times or more at budgets of 5 % and below: at 5 %, 12.4 and 12.2 incremental
+conversions per 1,000 contacts, against 1.2; at 0.5 %, 55.9 and 46.4.
+
+![Incremental conversions against capacity, four policies](reports/figures/fig7_budget_return.png)
+
+**The money assumptions.** With a conversion worth 1,000 contact costs, policy 3
+does best at 20 % of the users and policy 4 at 25 % (16 % to 28 %), and policy 3's
+best net value is 19.8 higher per 1,000 users (paired interval -44.2 to 4.7 for
+policy 4 minus policy 3). Over the whole sweep, values from 250 to 4,000 and
+costs from 0.5 to 2, policy 4 is behind by 8 to 57 per 1,000 users; the interval
+excludes zero at three of the fifteen points, never in its favour. Each policy is
+taken at the best budget of its own test curve, which flatters both.
+
+![Sensitivity of the difference to the money assumptions](reports/figures/fig8_tornado.png)
+
+**Why, as a hypothesis.** The effect on conversion is large in relative terms
+(59 %) and concentrated in the users the models rank first, most of the uplift
+sitting in the top decile (above). If the uplift grows with the baseline rate,
+as a proportional lift would make it, the users most likely to convert are also
+the ones the campaign moves most, and a classifier of conversion, fitted on all
+of train with about 25,000 positives, ranks them with less noise than an uplift
+model, which is a difference of two predictions. The data here do not test this;
+the simulation study does not include a propensity policy, by its grid fixed in
+advance.
 
 **Written down before the results, on purpose.** If the effect is not
 heterogeneous enough to rank by, that is the result: when uplift modeling is not
