@@ -740,3 +740,13 @@ Fixed on 2026-10-17, before the ATE was seen; the values live in
   and 4,000; the cost of a contact is swept over 0.5 to 2 times the unit. The
   break-even capacity, where one more contact returns its cost, is reported for
   every point of the sweep.
+- **Amended on 2026-10-17, after an adversarial review and before the test was
+  opened.** The break-even capacity is estimated as the capacity of the grid
+  with the largest net value, $v\,U(K) - c\,K$, which on a smooth concave curve
+  is where the slope crosses $c / v$. The first grid point where the measured
+  slope falls below $c / v$ was the first draft; on the test partition a slope
+  over 1 % of the units has a standard error of the order of $c / v$ itself, so
+  it returns the first dip of the noise. The best capacity and the best net
+  value of each policy, and the difference between policies 4 and 3, carry
+  intervals from the paired bootstrap; each policy is taken at the best $K$ of
+  its own curve, which flatters both, and the record says so.
