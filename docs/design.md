@@ -464,6 +464,15 @@ The simulation checks that this criterion picks the same winner as the true
 PEHE. If it does, the criterion is trusted on real data; if it does not, that is
 a finding.
 
+**Selection on Criteo, fixed on 2026-10-17 before the ATE was seen.** The values
+live in `SelectionConfig`. The four learners are fitted on train for the primary
+outcome (section 8.3) and scored on validation, with $e$ the treated share of
+validation. The chosen learner is the one with the smallest criterion; the
+record says whether the paired bootstrap interval separates it from each of the
+others, and a choice that no interval supports is reported as such, not
+replaced. Checks 1 and 3 of section 6.4 run on validation for the four
+learners; the test partition is not opened.
+
 ### 6.4 Cheap checks on real data
 
 1. **$\mathrm{mean}(\hat\tau) \approx \mathrm{ATE}$** on the same partition,
@@ -590,6 +599,15 @@ kept fixed), and differences between learners with a paired bootstrap. Two
 AUUCs with overlapping intervals do not rank the learners, and the text says
 so.
 
+### 7.3 Fixed before the test is opened
+
+Fixed on 2026-10-17, before the ATE was seen; the values live in
+`EvaluationConfig`. The curves of the four learners, against their random
+baselines, are computed on the test partition once, for the primary outcome,
+with `n_bootstrap` resamples for the bands and the paired differences, at the
+level of `EffectConfig`. The learner was chosen on validation (section
+6.3); the test ranks nothing new.
+
 ## 8. Power analysis
 
 The power analysis decides the primary outcome (section 3.2) and is a result in
@@ -702,3 +720,23 @@ The cost per contact and the value of a conversion are assumptions. Their
 ranges are fixed in `config.py` before evaluation, swept, and summarized in a
 tornado plot. The conclusion either survives the plausible range or the text
 says it does not.
+
+### 9.5 Fixed before the test is opened
+
+Fixed on 2026-10-17, before the ATE was seen; the values live in
+`DecisionConfig`.
+
+- **The counted outcome is `conversion`,** the business metric, for every
+  policy. Policy 3 ranks by a classifier of `conversion` on $X$ (the learners'
+  LightGBM setting, both arms pooled, $T$ not a feature). Policy 4 ranks by the
+  $\hat\tau$ of the learner chosen for the primary outcome: if that outcome is
+  `visit`, policy 4 ranks by visit uplift and is scored on conversions, and the
+  record says so.
+- **Capacities** $K$ as shares of the test partition: 0.005, 0.01, 0.02, 0.05,
+  0.1, 0.2, 0.3, 0.5, 0.7 and 1.
+- **Money.** The cost of a contact is the unit, so the headline is incremental
+  conversions per 1,000 contacts. The value of a conversion, in contact costs,
+  is 1,000 at the centre of its range and swept over 250, 500, 1,000, 2,000
+  and 4,000; the cost of a contact is swept over 0.5 to 2 times the unit. The
+  break-even capacity, where one more contact returns its cost, is reported for
+  every point of the sweep.
