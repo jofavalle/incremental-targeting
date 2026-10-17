@@ -1,0 +1,265 @@
+{
+  "alpha": 0.05,
+  "correction": "Bonferroni over the 1 / share subgroups of a size",
+  "decision": {
+    "conversion_mde_over_ate_at_decision_share": 0.8116080319981466,
+    "primary": "conversion",
+    "rule": "visit stays primary unless conversion supports heterogeneity at share 0.1: the MDE of the contrast at most its measured ATE",
+    "share": 0.1
+  },
+  "outcomes": {
+    "conversion": {
+      "ate": 0.001151769452934534,
+      "curve": [
+        {
+          "alpha": 0.025,
+          "controls_in_subgroup": 209694,
+          "mde": 0.0004739224065663298,
+          "mde_over_ate": 0.41147332511627854,
+          "share": 0.5,
+          "subgroups": 2,
+          "supports": true
+        },
+        {
+          "alpha": 0.01,
+          "controls_in_subgroup": 83878,
+          "mde": 0.0006566630697930906,
+          "mde_over_ate": 0.5701341254710416,
+          "share": 0.2,
+          "subgroups": 5,
+          "supports": true
+        },
+        {
+          "alpha": 0.005,
+          "controls_in_subgroup": 41939,
+          "mde": 0.0009347853390117791,
+          "mde_over_ate": 0.8116080319981466,
+          "share": 0.1,
+          "subgroups": 10,
+          "supports": true
+        },
+        {
+          "alpha": 0.0025,
+          "controls_in_subgroup": 20969,
+          "mde": 0.0013630093832669489,
+          "mde_over_ate": 1.1834046994337344,
+          "share": 0.05,
+          "subgroups": 20,
+          "supports": false
+        },
+        {
+          "alpha": 0.001,
+          "controls_in_subgroup": 8388,
+          "mde": 0.002268549056926936,
+          "mde_over_ate": 1.9696207875169955,
+          "share": 0.02,
+          "subgroups": 50,
+          "supports": false
+        },
+        {
+          "alpha": 0.0005,
+          "controls_in_subgroup": 4194,
+          "mde": 0.003338915719958986,
+          "mde_over_ate": 2.8989444992241586,
+          "share": 0.01,
+          "subgroups": 100,
+          "supports": false
+        },
+        {
+          "alpha": 0.00025,
+          "controls_in_subgroup": 2097,
+          "mde": 0.004907843741585596,
+          "mde_over_ate": 4.261133796421805,
+          "share": 0.005,
+          "subgroups": 200,
+          "supports": false
+        },
+        {
+          "alpha": 0.0001,
+          "controls_in_subgroup": 839,
+          "mde": 0.008141124067435012,
+          "mde_over_ate": 7.068362550068212,
+          "share": 0.002,
+          "subgroups": 500,
+          "supports": false
+        },
+        {
+          "alpha": 5e-05,
+          "controls_in_subgroup": 419,
+          "mde": 0.011908847089654225,
+          "mde_over_ate": 10.339610118424558,
+          "share": 0.001,
+          "subgroups": 1000,
+          "supports": false
+        }
+      ],
+      "p0": 0.001937747285325737,
+      "p1": 0.003089516738260271,
+      "subgroups": [
+        {
+          "alpha": 0.05,
+          "controls_in_subgroup": 419388,
+          "mde": 0.0002153298231684026,
+          "mde_over_ate": 0.18695566427792892,
+          "share": 1.0,
+          "subgroups": 1,
+          "supports": true
+        },
+        {
+          "alpha": 0.005,
+          "controls_in_subgroup": 41939,
+          "mde": 0.0009347853390117791,
+          "mde_over_ate": 0.8116080319981466,
+          "share": 0.1,
+          "subgroups": 10,
+          "supports": true
+        },
+        {
+          "alpha": 0.0005,
+          "controls_in_subgroup": 4194,
+          "mde": 0.003338915719958986,
+          "mde_over_ate": 2.8989444992241586,
+          "share": 0.01,
+          "subgroups": 100,
+          "supports": false
+        }
+      ]
+    },
+    "visit": {
+      "ate": 0.010342474404247806,
+      "curve": [
+        {
+          "alpha": 0.025,
+          "controls_in_subgroup": 209694,
+          "mde": 0.0020173665541238736,
+          "mde_over_ate": 0.19505647055750136,
+          "share": 0.5,
+          "subgroups": 2,
+          "supports": true
+        },
+        {
+          "alpha": 0.01,
+          "controls_in_subgroup": 83878,
+          "mde": 0.0027952468504851826,
+          "mde_over_ate": 0.2702686747126136,
+          "share": 0.2,
+          "subgroups": 5,
+          "supports": true
+        },
+        {
+          "alpha": 0.005,
+          "controls_in_subgroup": 41939,
+          "mde": 0.003979142264808225,
+          "mde_over_ate": 0.3847379369074322,
+          "share": 0.1,
+          "subgroups": 10,
+          "supports": true
+        },
+        {
+          "alpha": 0.0025,
+          "controls_in_subgroup": 20969,
+          "mde": 0.0058019825706951585,
+          "mde_over_ate": 0.5609859250231453,
+          "share": 0.05,
+          "subgroups": 20,
+          "supports": true
+        },
+        {
+          "alpha": 0.001,
+          "controls_in_subgroup": 8388,
+          "mde": 0.009656633513049849,
+          "mde_over_ate": 0.9336869626753659,
+          "share": 0.02,
+          "subgroups": 50,
+          "supports": true
+        },
+        {
+          "alpha": 0.0005,
+          "controls_in_subgroup": 4194,
+          "mde": 0.014212910820752576,
+          "mde_over_ate": 1.3742273140086403,
+          "share": 0.01,
+          "subgroups": 100,
+          "supports": false
+        },
+        {
+          "alpha": 0.00025,
+          "controls_in_subgroup": 2097,
+          "mde": 0.020891436403851958,
+          "mde_over_ate": 2.0199650090767003,
+          "share": 0.005,
+          "subgroups": 200,
+          "supports": false
+        },
+        {
+          "alpha": 0.0001,
+          "controls_in_subgroup": 839,
+          "mde": 0.03465468435140904,
+          "mde_over_ate": 3.3507150220430666,
+          "share": 0.002,
+          "subgroups": 500,
+          "supports": false
+        },
+        {
+          "alpha": 5e-05,
+          "controls_in_subgroup": 419,
+          "mde": 0.050692918258300176,
+          "mde_over_ate": 4.901430380865129,
+          "share": 0.001,
+          "subgroups": 1000,
+          "supports": false
+        }
+      ],
+      "p0": 0.03820096299204713,
+      "p1": 0.048543437396294936,
+      "subgroups": [
+        {
+          "alpha": 0.05,
+          "controls_in_subgroup": 419388,
+          "mde": 0.0009166040207144019,
+          "mde_over_ate": 0.08862521529064062,
+          "share": 1.0,
+          "subgroups": 1,
+          "supports": true
+        },
+        {
+          "alpha": 0.005,
+          "controls_in_subgroup": 41939,
+          "mde": 0.003979142264808225,
+          "mde_over_ate": 0.3847379369074322,
+          "share": 0.1,
+          "subgroups": 10,
+          "supports": true
+        },
+        {
+          "alpha": 0.0005,
+          "controls_in_subgroup": 4194,
+          "mde": 0.014212910820752576,
+          "mde_over_ate": 1.3742273140086403,
+          "share": 0.01,
+          "subgroups": 100,
+          "supports": false
+        }
+      ]
+    }
+  },
+  "power": 0.8,
+  "rates_from": "train, reports/ate.json",
+  "run": {
+    "arrow_cpu_threads": 6,
+    "cpu_count": 6,
+    "machine": "x86_64",
+    "memory_total_gib": 4.8,
+    "packages": {
+      "numpy": "2.4.6",
+      "scipy": "1.17.1"
+    },
+    "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.36",
+    "python": "3.11.2"
+  },
+  "sample": {
+    "controls": 419388,
+    "partition": "test",
+    "treated": 2376530
+  }
+}
