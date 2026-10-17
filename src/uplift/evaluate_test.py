@@ -274,10 +274,12 @@ def plot_figures(record: dict, figures: Path) -> None:
     capacities = np.asarray(record["capacities"])
     for policy in POLICIES:
         values = np.asarray(record["policies"][policy]["incremental"])
-        ax.plot(capacities, values, marker="o", label=policy)
+        (line,) = ax.plot(capacities, values, marker="o", label=policy)
         if "incremental_ci" in record["policies"][policy]:
+            # The band takes its line's colour: left alone it would take the next
+            # one in the cycle and sit under the wrong policy.
             ci = np.asarray(record["policies"][policy]["incremental_ci"])
-            ax.fill_between(capacities, ci[:, 0], ci[:, 1], alpha=0.2)
+            ax.fill_between(capacities, ci[:, 0], ci[:, 1], alpha=0.2, color=line.get_color())
     ax.set_xscale("log")
     ax.set_xlabel("capacity K, share of the test partition (log scale)")
     ax.set_ylabel(f"incremental {record['counted_outcome']}s")
