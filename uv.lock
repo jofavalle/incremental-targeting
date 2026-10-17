@@ -493,6 +493,8 @@ dependencies = [
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "numpy", version = "2.5.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "pyarrow" },
+    { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "scipy", version = "1.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
 ]
 
 [package.dev-dependencies]
@@ -506,6 +508,7 @@ requires-dist = [
     { name = "lightgbm", specifier = ">=4.7.0" },
     { name = "numpy", specifier = ">=2.4.6" },
     { name = "pyarrow", specifier = ">=26.0.0" },
+    { name = "scipy", specifier = ">=1.17.1" },
 ]
 
 [package.metadata.requires-dev]

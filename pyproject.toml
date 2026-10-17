@@ -8,6 +8,7 @@ dependencies = [
     "lightgbm>=4.7.0",
     "numpy>=2.4.6",
     "pyarrow>=26.0.0",
+    "scipy>=1.17.1",
 ]
 
 [build-system]
