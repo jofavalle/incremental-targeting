@@ -1,0 +1,39 @@
+{
+  "consistency": {
+    "conversion_without_visit": 0,
+    "exposure_without_treatment": 0
+  },
+  "counts": {
+    "conversion": 40774,
+    "exposure": 428212,
+    "treatment": 11882655,
+    "visit": 656929
+  },
+  "parquet": {
+    "compression": "zstd",
+    "file": "criteo_uplift.parquet",
+    "row_groups": 14,
+    "rows_per_group": 1048576
+  },
+  "rates": {
+    "conversion": 0.002916680257907384,
+    "exposure": 0.03063122299992732,
+    "treatment": 0.8500001287591226,
+    "visit": 0.046992000911042324
+  },
+  "rows": 13979592,
+  "run": {
+    "arrow_cpu_threads": 2,
+    "cpu_count": 6,
+    "machine": "x86_64",
+    "memory_total_gib": 4.8,
+    "packages": {
+      "numpy": "2.4.6",
+      "pyarrow": "26.0.0"
+    },
+    "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.36",
+    "python": "3.11.2",
+    "seconds": 16.7
+  },
+  "source_file": "criteo-research-uplift-v2.1.csv.gz"
+}
