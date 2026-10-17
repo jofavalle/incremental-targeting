@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from uplift.evaluate.effect import difference_of_means, propensity_strata
+
 
 def pehe(tau_hat: np.ndarray, tau_true: np.ndarray) -> float:
     """sqrt(mean((tau_hat - tau)^2))."""
@@ -29,6 +31,39 @@ def transformed_outcome(y: np.ndarray, t: np.ndarray, e) -> np.ndarray:
     return np.asarray(y, dtype=np.float64) * (t - e) / (e * (1 - e))
 
 
-def criterion(tau_hat: np.ndarray, z: np.ndarray) -> float:
-    """mean((tau_hat - Z)^2), to be compared between learners on the same rows."""
-    return float(np.mean((np.asarray(tau_hat) - np.asarray(z)) ** 2))
+def criterion(tau_hat: np.ndarray, z: np.ndarray, weights: np.ndarray | None = None) -> float:
+    """mean((tau_hat - Z)^2), to be compared between learners on the same rows.
+
+    `weights` are frequency weights, as the paired bootstrap passes them.
+    """
+    squared = (np.asarray(tau_hat) - np.asarray(z)) ** 2
+    if weights is None:
+        return float(squared.mean())
+    weights = np.asarray(weights, dtype=np.float64)
+    return float(weights @ squared / weights.sum())
+
+
+def calibration_by_decile(
+    tau_hat: np.ndarray, y: np.ndarray, t: np.ndarray, level: float
+) -> list[dict]:
+    """Observed uplift against mean prediction, within each decile of tau_hat (§6.4).
+
+    The deciles follow the rule of the strata of e_hat (§6.5): ties are never
+    split, and a decile without one of the arms is merged with its neighbour. The
+    observed uplift is a difference of means, valid inside any subset defined by
+    X alone (§2.3), with its normal interval.
+    """
+    deciles = propensity_strata(tau_hat, t, [i / 10 for i in range(1, 10)])
+    rows = []
+    for d in range(int(deciles.max()) + 1):
+        inside = deciles == d
+        observed = difference_of_means(y[inside], t[inside], level)
+        rows.append(
+            {
+                "rows": int(inside.sum()),
+                "mean_prediction": float(tau_hat[inside].mean()),
+                "observed": observed["estimate"],
+                "ci": observed["ci"],
+            }
+        )
+    return rows

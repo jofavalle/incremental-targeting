@@ -1,6 +1,6 @@
-# make data | split | eda | propensity | ate | power | simulate | memory | test | lint | format
+# make data | split | eda | propensity | ate | power | simulate | select | memory | test | lint | format
 
-.PHONY: data split eda propensity ate power simulate memory test lint format
+.PHONY: data split eda propensity ate power simulate select memory test lint format
 
 data:            ## Download Criteo-UPLIFT (checksum verified) and stream it into Parquet
 	./scripts/download_data.sh
@@ -23,6 +23,9 @@ power:           ## Power analysis on the test sizes and the measured ATE; decid
 
 simulate:        ## The simulation study, 8 configurations x 4 learners; hours, resumable (no dataset needed)
 	uv run python -m uplift.simulate.study
+
+select:          ## Fit the four learners on train, choose one on validation (needs `make power`)
+	uv run python -m uplift.select_learner
 
 memory:          ## Peak memory of ingest, split and a full-train fit, 2 threads (needs `make data`)
 	uv run python scripts/peak_memory.py
