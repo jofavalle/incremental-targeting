@@ -4,7 +4,10 @@ version = "0.1.0"
 description = "Budget-constrained targeting by incremental effect on the Criteo-UPLIFT randomized experiment"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "numpy>=2.4.6",
+    "pyarrow>=26.0.0",
+]
 
 [build-system]
 requires = ["hatchling"]
