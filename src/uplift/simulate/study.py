@@ -262,6 +262,10 @@ def plot_pehe(record: dict, path: Path) -> None:
         ax.set_xticks(range(len(group)))
         ax.set_xticklabels([n.replace("_", "\n") for n in group], fontsize=8)
         ax.set_ylabel(label)
+        if key == "pehe_normalized":
+            # Predicting the mean effect for everyone has a PEHE of exactly the sd
+            # of the true effect: a learner above this line does worse than that.
+            ax.axhline(1.0, color="black", linewidth=1, label="the mean effect for everyone")
     axes[0].legend(title="learner", fontsize=8)
     fig.suptitle(
         f"Simulation: n = {record['n']:,}, {record['replications']} replications, "
