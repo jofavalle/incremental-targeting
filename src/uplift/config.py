@@ -6,9 +6,9 @@ the codebase.
 Each value is committed before any result that depends on it, so the history
 shows that it was fixed first (docs/design.md §1): an assumption is never bent
 after seeing the results. This version fixes the paths, the split, the
-propensity check and the settings of the effect estimates. The simulation grid
-with `n` and `R`, the costs and the grid of budgets `K` arrive with their
-milestones, each one before its evaluation.
+propensity check, the settings of the effect estimates and the power analysis.
+The simulation grid with `n` and `R`, the costs and the grid of budgets `K`
+arrive with their milestones, each one before its evaluation.
 """
 
 from __future__ import annotations
@@ -167,6 +167,37 @@ class EffectConfig:
 
 
 # --------------------------------------------------------------------------
+# Power analysis
+# --------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class PowerConfig:
+    """The power analysis, which decides the primary outcome (docs/design.md §8).
+
+    Fixed on 2026-10-17, while the ATE was running and before it was seen: the
+    benchmark is the measured ATE, so the rule had to come first. The sample is
+    the test partition, by its arm sizes only; the rates are those of train.
+    """
+
+    #: Two-sided level and power of every minimum detectable effect.
+    alpha: float = 0.05
+    power: float = 0.80
+
+    #: Shares of the sample reported in the record: the whole sample (the ATE
+    #: against zero), a decile and a percentile, each contrasted with the rest.
+    #: The level is Bonferroni-corrected over the 1 / share subgroups of a size.
+    subgroup_shares: tuple[float, ...] = (1.0, 0.1, 0.01)
+
+    #: Shares for the curve of the MDE of a contrast against subgroup size.
+    curve_shares: tuple[float, ...] = (0.5, 0.2, 0.1, 0.05, 0.02, 0.01, 0.005, 0.002, 0.001)
+
+    #: `conversion` replaces `visit` as primary only if it supports heterogeneity
+    #: at this share: the MDE of the contrast at most its measured ATE (§8.3).
+    decision_share: float = 0.1
+
+
+# --------------------------------------------------------------------------
 # Everything together
 # --------------------------------------------------------------------------
 
@@ -178,6 +209,7 @@ class Config:
     split: SplitConfig = field(default_factory=SplitConfig)
     propensity: PropensityConfig = field(default_factory=PropensityConfig)
     effect: EffectConfig = field(default_factory=EffectConfig)
+    power: PowerConfig = field(default_factory=PowerConfig)
 
 
 CONFIG = Config()
