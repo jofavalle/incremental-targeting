@@ -25,7 +25,7 @@ where the dataset figures quoted in docs/design.md come from. Nothing is broken
 down by treatment arm: that would be the ATE, and it belongs to the analysis.
 
 `exposure` is kept. It is a post-treatment variable and must never be a feature
-(docs/design.md, section 3.3), but it is part of the record of the experiment.
+(docs/design.md §3.3), but it is part of the record of the experiment.
 
 Usage:
     python -m uplift.data.ingest
@@ -70,14 +70,14 @@ def _check_batch(batch: pa.RecordBatch, first_row: int) -> None:
     for name in SOURCE_COLUMNS:
         nulls = batch.column(name).null_count
         if nulls:
-            raise ValueError(f"{name}: {nulls} null values in {span}")
+            raise ValueError(f"{name}: {nulls} null values in {span}.")
     for name in FEATURES:
         if not np.isfinite(batch.column(name).to_numpy()).all():
-            raise ValueError(f"{name}: non-finite values in {span}")
+            raise ValueError(f"{name}: non-finite values in {span}.")
     for name in BINARY:
         values = batch.column(name).to_numpy()
         if values.min() < 0 or values.max() > 1:
-            raise ValueError(f"{name}: values outside {{0, 1}} in {span}")
+            raise ValueError(f"{name}: values outside {{0, 1}} in {span}.")
 
 
 class _Runs:
@@ -135,7 +135,7 @@ def ingest(
             )
             header = tuple(reader.schema.names)
             if header != SOURCE_COLUMNS:
-                raise ValueError(f"unexpected header {header}, expected {SOURCE_COLUMNS}")
+                raise ValueError(f"Unexpected header {header}; expected {SOURCE_COLUMNS}.")
 
             with pq.ParquetWriter(tmp, SCHEMA, compression="zstd") as writer:
 
@@ -152,7 +152,7 @@ def ingest(
                         continue
                     _check_batch(batch, rows)
                     if rows + n > np.iinfo(np.uint32).max:
-                        raise ValueError("more rows than a uint32 row_id can number")
+                        raise ValueError("More rows than a uint32 row_id can number.")
 
                     flags = {name: batch.column(name).to_numpy() for name in BINARY}
                     for name in BINARY:
@@ -183,7 +183,7 @@ def ingest(
                 if pending_rows:
                     write_group(pa.Table.from_batches(pending, schema=SCHEMA))
         if rows == 0:
-            raise ValueError(f"{src.name} holds a header and no rows")
+            raise ValueError(f"{src.name} holds a header and no rows.")
     except BaseException:
         tmp.unlink(missing_ok=True)
         raise

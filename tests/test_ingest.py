@@ -161,7 +161,7 @@ def _set_field(name, value):
 @pytest.mark.parametrize(
     "header, edit, message",
     [
-        (HEADER.replace("conversion,visit", "visit,conversion"), None, "unexpected header"),
+        (HEADER.replace("conversion,visit", "visit,conversion"), None, "Unexpected header"),
         (HEADER, _set_field("f3", ""), "null"),
         (HEADER, _set_field("f0", "inf"), "non-finite"),
         (HEADER, _set_field("treatment", "2"), "treatment"),

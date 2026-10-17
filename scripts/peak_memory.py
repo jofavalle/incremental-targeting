@@ -46,7 +46,7 @@ from uplift.runinfo import run_metadata, write_json
 
 STAGES = ("ingest", "split", "fit")
 PROBE_SEED = 0  # throwaway: the split files are deleted and the peak does not depend on it
-PROBE_FRACTIONS = (0.6, 0.2, 0.2)  # the 60/20/20 of docs/design.md; the fit needs train's size
+PROBE_FRACTIONS = (0.6, 0.2, 0.2)  # the 60/20/20 of docs/design.md §4; the fit needs train's size
 DEFAULT_OUT = Path("reports/peak_memory.json")
 
 
@@ -85,7 +85,7 @@ def run_stage(stage: str, src: Path, workdir: Path, threads: int, rounds: int) -
     elif stage == "fit":
         extra = _fit(workdir, threads, rounds)
     else:
-        raise ValueError(f"unknown stage {stage}")
+        raise ValueError(f"Unknown stage {stage}.")
     peak_kib = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss  # KiB on Linux
     return {
         "peak_rss_mib": round(peak_kib / 1024, 1),

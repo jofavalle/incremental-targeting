@@ -1,7 +1,7 @@
 """Random train, validation and test split of the ingested Parquet, stratified.
 
 Criteo-UPLIFT is a randomized experiment with no time axis: units are
-exchangeable, so the split is random, not temporal (docs/design.md, section 4).
+exchangeable, so the split is random, not temporal (docs/design.md §4).
 It is stratified by treatment and by both outcomes, so each partition keeps the
 treatment ratio of the experiment and its share of the rare positives. Both
 outcomes, because which one is primary is decided later, by the power analysis.
@@ -51,16 +51,16 @@ DEFAULT_SUMMARY = Path("reports/split_summary.json")
 def _check_fractions(fractions: Sequence[float]) -> tuple[float, float, float]:
     values = tuple(float(f) for f in fractions)
     if len(values) != len(PARTITIONS):
-        raise ValueError(f"need one fraction per partition {PARTITIONS}, got {values}")
+        raise ValueError(f"Need one fraction per partition {PARTITIONS}, got {values}.")
     if any(f <= 0 for f in values) or not math.isclose(sum(values), 1.0, abs_tol=1e-9):
-        raise ValueError(f"fractions must be positive and add up to 1, got {values}")
+        raise ValueError(f"The fractions must be positive and add up to 1, got {values}.")
     return values  # type: ignore[return-value]
 
 
 def _check_seed(seed: object) -> int:
     # None would draw a fresh partition on every run, and record "seed": null.
     if isinstance(seed, bool) or not isinstance(seed, (int, np.integer)):
-        raise ValueError(f"the seed must be an integer, got {seed!r}")
+        raise ValueError(f"The seed must be an integer, got {seed!r}.")
     return int(seed)
 
 
@@ -80,9 +80,9 @@ def assign_partitions(
     code = np.zeros(n_rows, dtype=np.uint8)
     for column in columns:
         if len(column) != n_rows:
-            raise ValueError("stratification columns differ in length")
+            raise ValueError("The stratification columns differ in length.")
         if column.size and (column.min() < 0 or column.max() > 1):
-            raise ValueError("stratification columns must be binary")
+            raise ValueError("The stratification columns must be binary.")
         code = code * 2 + column.astype(np.uint8)
 
     labels = np.full(n_rows, -1, dtype=np.int8)
@@ -98,7 +98,7 @@ def assign_partitions(
         labels[rows[n_train : n_train + n_val]] = 1
         labels[rows[n_train + n_val :]] = 2
     if (labels < 0).any():
-        raise RuntimeError("rows left without a partition")
+        raise RuntimeError("Rows were left without a partition.")
     return labels
 
 
@@ -118,7 +118,7 @@ def split(src: Path, out_dir: Path, *, fractions: Sequence[float], seed: int) ->
     del strata
     sizes = np.bincount(labels, minlength=len(PARTITIONS))
     if (sizes == 0).any():
-        raise ValueError(f"a partition would be empty: sizes {dict(zip(PARTITIONS, sizes))}")
+        raise ValueError(f"A partition would be empty: sizes {dict(zip(PARTITIONS, sizes))}.")
 
     out_dir.mkdir(parents=True, exist_ok=True)
     finals = [out_dir / f"{name}.parquet" for name in PARTITIONS]
@@ -137,7 +137,7 @@ def split(src: Path, out_dir: Path, *, fractions: Sequence[float], seed: int) ->
                 for k, writer in enumerate(writers):
                     writer.write_table(table.filter(pa.array(group_labels == k)))
             if offset != labels.size:
-                raise RuntimeError(f"streamed {offset} rows, assigned {labels.size}")
+                raise RuntimeError(f"Streamed {offset} rows but assigned {labels.size}.")
     except BaseException:
         for tmp in tmps:
             tmp.unlink(missing_ok=True)
