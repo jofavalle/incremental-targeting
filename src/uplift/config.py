@@ -3,12 +3,12 @@
 Every value the analysis depends on lives here. No magic numbers elsewhere in
 the codebase.
 
-Each value is committed before the code that evaluates it, so the history of
-this file shows that it was fixed first (docs/design.md §1, principle: never
-bend an assumption after seeing the results). This version fixes the paths and
-the split. The threshold of the propensity check, the simulation grid with `n`
-and `R`, the costs and the grid of budgets `K` arrive with their milestones,
-each one before its evaluation.
+Each value is committed before any result that depends on it, so the history
+shows that it was fixed first (docs/design.md §1): an assumption is never bent
+after seeing the results. This version fixes the paths and the split. The
+threshold of the propensity check, the simulation grid with `n` and `R`, the
+costs and the grid of budgets `K` arrive with their milestones, each one before
+its evaluation.
 """
 
 from __future__ import annotations
@@ -24,6 +24,13 @@ from pathlib import Path
 # Resolving it this way means the code works regardless of the working directory
 # it is invoked from.
 PROJECT_ROOT: Path = Path(__file__).resolve().parents[2]
+if not (PROJECT_ROOT / "pyproject.toml").is_file():
+    # A non-editable install puts this file inside the virtual environment, and
+    # every path below would then point there, silently.
+    raise RuntimeError(
+        f"config.py is not inside the repository (resolved {PROJECT_ROOT}); "
+        "install the project in editable mode, as `uv sync` does."
+    )
 
 DATA_RAW: Path = PROJECT_ROOT / "data" / "raw"
 DATA_PROCESSED: Path = PROJECT_ROOT / "data" / "processed"
