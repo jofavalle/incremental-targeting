@@ -4,13 +4,24 @@ from __future__ import annotations
 
 import json
 import math
+import socket
+from pathlib import Path
 
 import numpy as np
+import pyarrow.csv as pacsv
 import pyarrow.parquet as pq
 import pytest
 from conftest import N_ROWS, format_rows, make_columns, write_csv_gz
 
-from uplift.data.ingest import BINARY, FEATURES, ROW_ID, SCHEMA, SOURCE_COLUMNS, ingest
+from uplift.data.ingest import (
+    BINARY,
+    FEATURES,
+    MAX_RECORDED_RUNS,
+    ROW_ID,
+    SCHEMA,
+    SOURCE_COLUMNS,
+    ingest,
+)
 from uplift.runinfo import write_json
 
 HEADER = ",".join(SOURCE_COLUMNS)
@@ -64,10 +75,41 @@ def test_summary_counts(ingested, synthetic_columns):
     converted_without_visit = int(((cols["conversion"] == 1) & (cols["visit"] == 0)).sum())
     assert consistency["exposure_without_treatment"] == exposed_controls
     assert consistency["conversion_without_visit"] == converted_without_visit
-    shares = summary["source_order"]["treatment_share_by_row_group"]
-    assert len(shares) == summary["parquet"]["row_groups"]
-    first_group = cols["treatment"][:ROWS_PER_GROUP]
-    assert shares[0] == round(float(first_group.mean()), 4)
+    # The synthetic treatment is i.i.d., so it has thousands of runs: counted, not listed.
+    expected_runs = 1 + int(np.count_nonzero(np.diff(cols["treatment"])))
+    assert expected_runs > MAX_RECORDED_RUNS
+    assert summary["source_order"] == {
+        "treatment_runs": expected_runs,
+        "treatment_run_lengths": None,
+    }
+
+
+def test_summary_keys_hold_no_outcome_by_arm(ingested):
+    _, summary = ingested
+    assert set(summary) == {
+        "source_file",
+        "rows",
+        "counts",
+        "rates",
+        "consistency",
+        "parquet",
+        "source_order",
+        "run",
+    }
+    assert set(summary["counts"]) == set(summary["rates"]) == set(BINARY)
+
+
+def test_treatment_runs_are_merged_across_batches(tmp_path):
+    columns = make_columns(3000, seed=4)
+    pattern = np.repeat([1, 0, 1, 0], [1700, 400, 800, 100]).astype(np.int8)
+    columns["treatment"] = pattern
+    columns["exposure"] = columns["exposure"] & pattern
+    src = write_csv_gz(tmp_path / "runs.csv.gz", HEADER, format_rows(columns))
+    summary = ingest(src, tmp_path / "out.parquet", rows_per_group=512, block_size=4 << 10)
+    assert summary["source_order"] == {
+        "treatment_runs": 4,
+        "treatment_run_lengths": [[1, 1700], [0, 400], [1, 800], [0, 100]],
+    }
 
 
 def test_summary_records_no_path(ingested, synthetic_csv_gz, tmp_path):
@@ -76,14 +118,26 @@ def test_summary_records_no_path(ingested, synthetic_csv_gz, tmp_path):
     write_json(out, summary)
     text = out.read_text()
     assert summary["source_file"] == synthetic_csv_gz.name
-    for directory in (synthetic_csv_gz.parent, dst.parent, tmp_path):
+    for directory in (synthetic_csv_gz.parent, dst.parent, tmp_path, Path.cwd(), Path.home()):
         assert str(directory) not in text
+    assert socket.gethostname() not in text
     assert json.loads(text) == summary
 
 
-def test_no_csv_is_written(ingested):
+def test_no_csv_is_written(ingested, synthetic_csv_gz):
     dst, _ = ingested
     assert sorted(p.name for p in dst.parent.iterdir()) == [dst.name]
+    # Nor next to the source, which is where a decompress-then-read would leave it.
+    assert sorted(p.name for p in synthetic_csv_gz.parent.iterdir()) == [synthetic_csv_gz.name]
+
+
+def test_never_reads_the_whole_file_at_once(tmp_path, synthetic_csv_gz, monkeypatch):
+    def whole_file_read(*args, **kwargs):
+        raise AssertionError("the ingest must stream, not read_csv the whole file")
+
+    monkeypatch.setattr(pacsv, "read_csv", whole_file_read)
+    summary = ingest(synthetic_csv_gz, tmp_path / "out.parquet", block_size=BLOCK_SIZE)
+    assert summary["rows"] == N_ROWS
 
 
 def _bad_file(tmp_path, header=HEADER, edit=None):

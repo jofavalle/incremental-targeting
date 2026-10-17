@@ -11,10 +11,12 @@ project (2 cores, 3.7 GiB).
 
 Types are declared, never inferred: the twelve features as float32 and the four
 binary columns as int8. A `row_id` column records the position of each row in
-the source file. The file is not in random order (the treatment share drifts
-along it, which the summary records per row group), so nothing downstream may
-rely on position; the row_id makes the split reproducible and joinable back to
-the source.
+the source file, so that any partition can be traced back to it. **`row_id` is
+never a feature**, with the same status as `exposure`: the file is sorted by
+treatment within blocks (the summary records its runs of constant treatment),
+so position predicts treatment almost perfectly. For the same reason nothing
+downstream may rely on position: a head, a tail or a contiguous slice is a
+biased sample.
 
 The ingest refuses a file that is not what it expects: a header other than the
 sixteen columns of v2.1, a null, a non-finite feature, or a binary column
@@ -58,6 +60,7 @@ DEFAULT_DST = Path("data/processed/criteo_uplift.parquet")
 DEFAULT_SUMMARY = Path("reports/data_summary.json")
 
 ROWS_PER_GROUP = 1 << 20
+MAX_RECORDED_RUNS = 1000  # beyond this, the summary keeps the count and not the runs
 BLOCK_SIZE = 1 << 20  # bytes of CSV text per parsed batch; see the module docstring
 
 
@@ -75,6 +78,29 @@ def _check_batch(batch: pa.RecordBatch, first_row: int) -> None:
         values = batch.column(name).to_numpy()
         if values.min() < 0 or values.max() > 1:
             raise ValueError(f"{name}: values outside {{0, 1}} in {span}")
+
+
+class _Runs:
+    """Runs of constant value along a stream of arrays, merged across arrays."""
+
+    def __init__(self) -> None:
+        self.count = 0
+        self.last: int | None = None
+        self.runs: list[list[int]] | None = []  # [value, length]; None once too many
+
+    def extend(self, values: np.ndarray) -> None:
+        starts = np.r_[0, np.flatnonzero(np.diff(values)) + 1]
+        merges = self.last is not None and int(values[0]) == self.last
+        self.count += starts.size - int(merges)
+        if self.runs is not None:
+            lengths = np.diff(np.r_[starts, values.size])
+            if merges:
+                self.runs[-1][1] += int(lengths[0])
+                starts, lengths = starts[1:], lengths[1:]
+            self.runs.extend([int(values[s]), int(n)] for s, n in zip(starts, lengths))
+            if len(self.runs) > MAX_RECORDED_RUNS:
+                self.runs = None
+        self.last = int(values[-1])
 
 
 def ingest(
@@ -97,7 +123,8 @@ def ingest(
     exposure_without_treatment = 0
     conversion_without_visit = 0
     rows = 0
-    treatment_share_by_group: list[float] = []
+    row_groups = 0
+    treatment_runs = _Runs()
 
     read_options = pacsv.ReadOptions(block_size=block_size)
     convert_options = pacsv.ConvertOptions(column_types=SOURCE_TYPES)
@@ -113,9 +140,9 @@ def ingest(
             with pq.ParquetWriter(tmp, SCHEMA, compression="zstd") as writer:
 
                 def write_group(group: pa.Table) -> None:
+                    nonlocal row_groups
                     writer.write_table(group, row_group_size=rows_per_group)
-                    treated = group["treatment"].to_numpy().sum(dtype=np.int64)
-                    treatment_share_by_group.append(round(float(treated) / group.num_rows, 4))
+                    row_groups += 1
 
                 pending: list[pa.RecordBatch] = []
                 pending_rows = 0
@@ -136,6 +163,7 @@ def ingest(
                     conversion_without_visit += int(
                         np.count_nonzero((flags["conversion"] == 1) & (flags["visit"] == 0))
                     )
+                    treatment_runs.extend(flags["treatment"])
 
                     row_id = pa.array(np.arange(rows, rows + n, dtype=np.uint32))
                     pending.append(
@@ -172,13 +200,17 @@ def ingest(
         },
         "parquet": {
             "file": dst.name,
-            "row_groups": len(treatment_share_by_group),
+            "row_groups": row_groups,
             "rows_per_group": rows_per_group,
             "compression": "zstd",
         },
-        # Not an analysis: a record of the file's order, so that relying on row
-        # position (a head, a tail, a slice) is visibly wrong.
-        "source_order": {"treatment_share_by_row_group": treatment_share_by_group},
+        # Not an analysis: a record of the file's order, which is why `row_id` and
+        # row position must never stand in for anything. The runs are listed as
+        # [treatment, length] while there are at most MAX_RECORDED_RUNS of them.
+        "source_order": {
+            "treatment_runs": treatment_runs.count,
+            "treatment_run_lengths": treatment_runs.runs,
+        },
         "run": {**run_metadata(), "seconds": round(time.perf_counter() - started, 1)},
     }
 
