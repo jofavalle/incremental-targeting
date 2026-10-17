@@ -61,6 +61,19 @@ a revision and checked against the SHA256 that its LFS pointer publishes; the
 download link on the Criteo page no longer resolves. The data are licensed
 CC BY-NC-SA 4.0 and are never committed here.
 
+**Balance, checked before any effect**
+([`reports/propensity_check.json`](reports/propensity_check.json)). No feature
+differs between the arms by more than 0.05 standardized mean differences. A
+classifier of the treatment on the features, fitted on train, scores an AUC of
+0.5102 on validation (95 % interval 0.5093 to 0.5111). The rule, committed before
+the check ran, treats the propensity as constant unless the lower bound exceeds
+0.51, so the analysis proceeds with a constant propensity. The margin is thin,
+and it is reported as such: that AUC corresponds to a propensity that varies by
+about 0.46 points around 0.85, and the figure shows where, in a tail of users
+the treatment reached more often.
+
+![Estimated propensity by arm, on validation](reports/figures/fig1_propensity_overlap.png)
+
 ## Key decisions
 
 Each one is argued in `docs/design.md`.
@@ -124,8 +137,9 @@ the conclusion looks better.
   at this sample size. The power analysis decides, before any model is fitted.
 - The costs and the value of a conversion are assumptions, swept over ranges
   fixed in advance.
-- The constant propensity of a randomized design will be checked first, but a
-  check on the features can only refute it, never confirm it (§2.3).
+- The propensity is treated as constant by a rule fixed in advance, and it
+  passed at the margin. A check on the features can only refute a constant
+  propensity, never confirm it (§2.3).
 
 ## Run it
 
