@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 
 import numpy as np
@@ -10,7 +11,7 @@ import pytest
 
 from conftest import format_rows, make_columns, write_csv_gz
 
-from uplift.config import CONFIG
+from uplift.config import CONFIG, REPORTS_DIR
 from uplift.data.ingest import ROW_ID, SOURCE_COLUMNS, ingest
 from uplift.data.split import PARTITIONS, STRATA, assign_partitions, split
 
@@ -163,3 +164,11 @@ def test_the_real_config_is_a_valid_split():
 def test_a_config_without_a_seed_is_refused(tmp_path, ingested_parquet):
     with pytest.raises(AttributeError, match="seed"):
         split(ingested_parquet, tmp_path, SimpleNamespace(fractions=FRACTIONS))
+
+
+def test_the_versioned_split_summary_matches_the_config():
+    # The summary in reports/ describes the partition on disk. If config.py moves
+    # and the split is not run again, the record and the code part ways.
+    summary = json.loads((REPORTS_DIR / "split_summary.json").read_text())
+    assert summary["seed"] == CONFIG.split.seed
+    assert summary["fractions"] == dict(zip(PARTITIONS, CONFIG.split.fractions))
