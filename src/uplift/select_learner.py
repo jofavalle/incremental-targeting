@@ -197,7 +197,9 @@ def main(argv: list[str] | None = None) -> None:
     plot_calibration(record, args.figure)
     args.models.parent.mkdir(parents=True, exist_ok=True)
     with args.models.open("wb") as handle:
-        pickle.dump({"outcome": record["outcome"], "learners": fitted}, handle)
+        pickle.dump(
+            {"outcome": record["outcome"], "chosen": record["chosen"], "learners": fitted}, handle
+        )
     print(f"chosen: {record['chosen']}; record -> {args.out}; learners -> {args.models}")
 
 

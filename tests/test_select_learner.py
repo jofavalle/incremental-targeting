@@ -79,5 +79,6 @@ def test_the_driver_selects_checks_and_keeps_the_learners(tmp_path, monkeypatch)
     with models.open("rb") as handle:
         saved = pickle.load(handle)
     assert saved["outcome"] == "visit" and set(saved["learners"]) == {"S", "T", "X", "DR"}
+    assert saved["chosen"] == record["chosen"]
     assert str(tmp_path) not in out.read_text()
     assert figure.stat().st_size > 0
