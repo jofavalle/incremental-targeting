@@ -1,6 +1,6 @@
-# make data | split | propensity | ate | memory | test | lint | format
+# make data | split | eda | propensity | ate | memory | test | lint | format
 
-.PHONY: data split propensity ate memory test lint format
+.PHONY: data split eda propensity ate memory test lint format
 
 data:            ## Download Criteo-UPLIFT (checksum verified) and stream it into Parquet
 	./scripts/download_data.sh
@@ -8,6 +8,9 @@ data:            ## Download Criteo-UPLIFT (checksum verified) and stream it int
 
 split:           ## Stratified train/val/test split (needs `make data` and src/uplift/config.py)
 	uv run python -m uplift.data.split
+
+eda:             ## Ties from float32 and duplicated feature vectors (needs `make split` and data/raw)
+	uv run python -m uplift.data.eda
 
 propensity:      ## Balance and propensity check, before any ATE (needs `make split`)
 	uv run python -m uplift.propensity_check

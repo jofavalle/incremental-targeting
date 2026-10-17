@@ -164,13 +164,15 @@ With the real data:
 ```bash
 make data      # 311 MB, checksum verified, streamed into Parquet: the CSV never hits the disk
 make split     # stratified train/validation/test, seed from config.py
+make eda       # ties that float32 creates, and duplicated feature vectors
 make propensity  # balance and propensity check, before any effect: about 3 minutes
 make ate       # the ATE and its three sensitivity versions, with a cross-fitted propensity
 make memory    # peak memory of each stage, with 2 threads
 ```
 
 `make data` writes `reports/data_summary.json`, `make split` writes
-`reports/split_summary.json`, `make propensity` writes
+`reports/split_summary.json`, `make eda` writes `reports/eda_summary.json`,
+`make propensity` writes
 `reports/propensity_check.json` and `make ate` writes `reports/ate.json`, each
 of the last two with its figure. Every figure quoted in this
 repository comes from one of those records, is derived from them by arithmetic,
