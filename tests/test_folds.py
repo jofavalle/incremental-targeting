@@ -119,18 +119,29 @@ def test_rejects_more_folds_than_rows():
 
 
 @pytest.mark.parametrize("draw", DRAWS.values(), ids=list(DRAWS))
-@pytest.mark.parametrize("seed", [None, 1.5, True, "7"])
-def test_rejects_a_seed_that_is_not_an_integer(draw, seed):
+@pytest.mark.parametrize("seed", [None, 1.5, True, "7", -1])
+def test_rejects_a_seed_that_is_not_a_non_negative_integer(draw, seed):
     columns, _ = _sorted_like_the_source(1000)
-    with pytest.raises(ValueError, match="seed"):
+    with pytest.raises(ValueError, match="seed must be"):
         draw(columns, seed)
 
 
 @pytest.mark.parametrize("draw", DRAWS.values(), ids=list(DRAWS))
-def test_rejects_non_binary_strata(draw):
+@pytest.mark.parametrize("bad", ["two", "a half", "nan"])
+def test_rejects_non_binary_strata(draw, bad):
+    # Inside [0, 1] is not enough: 0.5 and NaN would pass a range check.
     columns, _ = _sorted_like_the_source(1000)
+    column = columns[1].astype(np.float64)
+    column[0] = {"two": 2.0, "a half": 0.5, "nan": np.nan}[bad]
     with pytest.raises(ValueError, match="binary"):
-        draw([columns[0], columns[1] * 2], 0)
+        draw([columns[0], column], 0)
+
+
+@pytest.mark.parametrize("draw", DRAWS.values(), ids=list(DRAWS))
+def test_rejects_more_strata_than_the_code_holds(draw):
+    columns, _ = _sorted_like_the_source(1000)
+    with pytest.raises(ValueError, match="At most 8"):
+        draw([columns[0]] * 9, 0)
 
 
 @pytest.mark.parametrize("draw", DRAWS.values(), ids=list(DRAWS))

@@ -75,15 +75,17 @@ def test_rejects_invalid_fractions(fractions):
         assign_partitions(_strata(100), fractions, seed=0)
 
 
-@pytest.mark.parametrize("seed", [None, 1.5, True, "7"])
-def test_rejects_a_seed_that_is_not_an_integer(seed):
-    with pytest.raises(ValueError, match="seed"):
+@pytest.mark.parametrize("seed", [None, 1.5, True, "7", -1])
+def test_rejects_a_seed_that_is_not_a_non_negative_integer(seed):
+    with pytest.raises(ValueError, match="seed must be"):
         assign_partitions(_strata(100), FRACTIONS, seed=seed)
 
 
-def test_rejects_non_binary_strata():
+@pytest.mark.parametrize("bad", [2.0, 0.5, np.nan])
+def test_rejects_non_binary_strata(bad):
     columns = _strata(100)
-    columns[1] = columns[1] * 2
+    columns[1] = columns[1].astype(np.float64)
+    columns[1][0] = bad
     with pytest.raises(ValueError, match="binary"):
         assign_partitions(columns, FRACTIONS, seed=0)
 

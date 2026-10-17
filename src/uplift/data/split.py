@@ -89,6 +89,8 @@ def _check_seed(seed: object) -> int:
     # None would draw a fresh partition on every run, and record "seed": null.
     if isinstance(seed, bool) or not isinstance(seed, (int, np.integer)):
         raise ValueError(f"The seed must be an integer, got {seed!r}.")
+    if seed < 0:
+        raise ValueError(f"The seed must be a non-negative integer, got {seed!r}.")
     return int(seed)
 
 
@@ -96,13 +98,18 @@ def _stratum_codes(columns: Sequence[np.ndarray]) -> np.ndarray:
     """The stratum of each row: the binary `columns` read as the bits of one number."""
     if len(columns) == 0:
         raise ValueError("Need at least one stratification column.")
+    if len(columns) > 8:
+        # The code is a uint8: a ninth bit would overflow and merge strata silently.
+        raise ValueError(f"At most 8 stratification columns fit, got {len(columns)}.")
     n_rows = len(columns[0])
     code = np.zeros(n_rows, dtype=np.uint8)
     for column in columns:
         if len(column) != n_rows:
             raise ValueError("The stratification columns differ in length.")
-        if column.size and (column.min() < 0 or column.max() > 1):
-            raise ValueError("The stratification columns must be binary.")
+        # Checking only the range would let 0.5 or NaN through, and the cast to
+        # uint8 would then put those rows in the stratum of a 0, silently.
+        if column.size and not np.isin(column, (0, 1)).all():
+            raise ValueError("The stratification columns must be binary: every value 0 or 1.")
         code = code * 2 + column.astype(np.uint8)
     return code
 
