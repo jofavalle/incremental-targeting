@@ -9,8 +9,14 @@ and writes the record is `uplift.propensity_check`.
   controls, on average? Descriptive; it decides nothing.
 - `auc` and `bootstrap_auc_interval`: can a classifier tell the arms apart from
   the features? Under a constant propensity its out-of-sample AUC is 0.5.
-- `implied_propensity_sd`: what spread of the propensity an AUC corresponds to,
-  so that the number reads as a size and not only as a test.
+- `linear_propensity_sd_bound`: a lower bound on the spread of the true
+  propensity, from the mean differences alone and whatever its shape. This is
+  the size the AUC cannot give.
+- `smd_noise_se`: the noise level of an SMD under one ratio for everybody, so
+  that a small SMD can be read against it.
+- `propensity_sd_if_normal`: the spread a normal propensity would need to
+  produce a given AUC. Only a translation: a skewed propensity gives the same
+  AUC with a larger spread.
 - `propensity_is_constant`: the rule of `PropensityConfig`, in one place.
 """
 
@@ -77,17 +83,68 @@ def bootstrap_auc_interval(
     return float(low), float(high)
 
 
-def implied_propensity_sd(auc_value: float, treated_share: float) -> float:
-    """The standard deviation of the propensity that would produce `auc_value`.
+def propensity_sd_if_normal(auc_value: float, treated_share: float) -> float:
+    """The standard deviation a NORMAL propensity would need to produce `auc_value`.
 
     Inverts ``AUC = Phi(sigma_e / (sqrt(2) e_bar (1 - e_bar)))``, the small-spread
-    approximation derived in `PropensityConfig`. An AUC at or below 0.5 means no
-    detectable spread, and gives 0.
+    approximation derived in `PropensityConfig`, which holds for a normal
+    propensity only. A heavier tail gives the same AUC with a larger spread, so
+    this is neither an estimate nor a bound of the real spread; for a bound, see
+    `linear_propensity_sd_bound`. An AUC at or below 0.5 gives 0.
     """
     if auc_value <= 0.5:
         return 0.0
     spread = math.sqrt(2) * treated_share * (1 - treated_share)
     return float(spread * norm.ppf(auc_value))
+
+
+def smd_noise_se(n_treated: int, n_control: int) -> float:
+    """Standard error of an SMD under one treatment ratio for everybody, about sqrt(1/n1 + 1/n0)."""
+    return math.sqrt(1 / n_treated + 1 / n_control)
+
+
+def linear_propensity_sd_bound(
+    x: np.ndarray, t: np.ndarray, chunk_rows: int = 1 << 20
+) -> tuple[float, float]:
+    """A lower bound on the standard deviation of the true propensity e(X), and its noise floor.
+
+    ``E[X T] = E[X e(X)]``, so ``Cov(X, e(X)) = Cov(X, T) = e_bar (1 - e_bar) delta``,
+    with ``delta`` the difference of the feature means between the arms: the mean
+    differences ARE covariances with the propensity. The variance of e(X) is at
+    least that of its best linear predictor from X,
+    ``(e_bar (1 - e_bar))**2 delta' Sigma^-1 delta``, whatever the shape of e.
+
+    Under a constant propensity, sampling noise alone gives a bound of about
+    ``e_bar (1 - e_bar) sqrt(p (1/n1 + 1/n0))``, returned second, so that the bound
+    can be read against it. Two passes in float64 over blocks of rows: the means,
+    then the centred cross-products, so a float32 matrix is never copied whole
+    and the covariance does not lose digits to large means.
+    """
+    treated = _arms(t)
+    n_rows, n_features = x.shape
+    n1 = int(treated.sum())
+    n0 = n_rows - n1
+    blocks = range(0, n_rows, chunk_rows)
+
+    total = np.zeros(n_features)
+    total_treated = np.zeros(n_features)
+    for start in blocks:
+        block = x[start : start + chunk_rows].astype(np.float64)
+        total += block.sum(axis=0)
+        total_treated += block[treated[start : start + chunk_rows]].sum(axis=0)
+    mean = total / n_rows
+    delta = total_treated / n1 - (total - total_treated) / n0
+
+    cross = np.zeros((n_features, n_features))
+    for start in blocks:
+        centred = x[start : start + chunk_rows].astype(np.float64) - mean
+        cross += centred.T @ centred
+    sigma = cross / n_rows
+
+    scale = (n1 / n_rows) * (n0 / n_rows)
+    bound = scale * math.sqrt(float(delta @ np.linalg.solve(sigma, delta)))
+    noise = scale * math.sqrt(n_features * (1 / n1 + 1 / n0))
+    return bound, noise
 
 
 def propensity_is_constant(auc_low: float, threshold: float) -> bool:
