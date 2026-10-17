@@ -3,12 +3,11 @@
 **Who should a campaign contact when the budget is fixed? The users it changes,
 not the users most likely to convert.**
 
-> **Status: data and design in place (October 2026). No effect has been
-> estimated yet.** The data are downloaded, verified against the published
-> figures and split, behind guards against the dataset's traps; the design is
-> fixed in [`docs/design.md`](docs/design.md). Every result below is blank on
-> purpose, and each will be filled in from a measured run, never from an
-> expectation.
+> **Status (October 2026): the average effect and the power analysis are
+> measured; the simulation study, the learner selection and the test evaluation
+> are under way.** Every setting is fixed in [`docs/design.md`](docs/design.md)
+> and `config.py` before the result it governs, and the history shows it. A
+> result that is not measured yet is blank, never filled from an expectation.
 
 **Headline:** incremental conversions per 1,000 of budget, ranking by predicted
 uplift against ranking by propensity to convert, on the held-out test
@@ -81,6 +80,17 @@ estimated propensity, declared before any effect was computed (`docs/design.md`
 
 ![Estimated propensity by arm, on validation](reports/figures/fig1_propensity_overlap.png)
 
+**Ties and repeated vectors** ([`reports/eda_summary.json`](reports/eda_summary.json)).
+Storing the features as `float32` merges distinct source values in one feature
+only: `f10` keeps 483,634 of its 517,372 values, and 80,469 rows (0.6 %) hold a
+value that now shares its `float32` with another. The other eleven keep every
+value; four of them take fewer than 300. A quarter of the rows (3,560,505) share
+their whole twelve-feature vector with another row, in groups of up to 24, and
+18.6 % of the validation and test rows have a vector that also appears in
+train. The data cannot say whether those are repeated users or coarse features;
+if they are repeated users, the evaluation on test is partly on users the models
+have seen, and its figures lean optimistic.
+
 ## Key decisions
 
 Each one is argued in `docs/design.md`.
@@ -111,22 +121,67 @@ Each one is argued in `docs/design.md`.
    between meta-learners and not between base models.
 5. **Every result with an error bar, every assumption fixed first** (§7 to §9).
    Each value in [`src/uplift/config.py`](src/uplift/config.py) is committed
-   before any result that depends on it: today the split, the propensity check
-   and the settings of the effect estimates; the costs, budgets and thresholds
-   will follow the same rule. The budget-return curve will be
-   published whole, including where uplift targeting does not win.
+   before any result that depends on it: the split, the propensity check, the
+   effect estimates, the power analysis and its rule for the primary outcome,
+   the simulation grid with its size, the learners' setting, the selection, the
+   test evaluation, and the costs and budgets of the decision layer. The rule for
+   the primary outcome, for one, was pushed while the ATE it compares against
+   was still running. The budget-return curve will be published whole, including
+   where uplift targeting does not win.
 
 ## Results
-
-Blank until measured.
 
 | Result | Value |
 |---|---|
 | Incremental conversions per 1,000 of budget, uplift against propensity ranking | not measured |
 | PEHE of the four learners across six simulated regimes | not measured |
 | Learner predicted by the simulation, and whether it won on Criteo | not measured |
-| Power analysis: smallest detectable heterogeneity, per outcome | not measured |
+| Power analysis: smallest detectable heterogeneity, per outcome | conversion: a decile against the rest, not a percentile; visit: down to 2 % subgroups |
 | AUUC of the chosen learner, with its bootstrap interval | not measured |
+
+### The average effect, and how much it depends on the propensity
+
+([`reports/ate.json`](reports/ate.json)). Assignment to the campaign raises
+visits by **1.03 points** (95 % interval 0.97 to 1.10 on validation; 3.82 % to
+4.85 %) and conversions by **0.115 points** (0.100 to 0.130; 0.194 % to
+0.309 %), a relative lift of 27 % and 59 %. The partitions agree by
+construction (`docs/design.md` §4.2), and the bootstrap interval matches the
+normal one.
+
+The three sensitivity versions declared before this was computed (§6.5) do not
+agree with it, and the gap is far larger than their noise. On visit, weighting
+by a cross-fitted propensity gives 0.75 points and subclassifying by it 0.74:
+about a quarter less, each with a paired interval of the difference that
+excludes zero. Reading the file order as tests, the block version gives 1.31
+points: about a quarter more. Conversion shows the same pattern, smaller below
+and larger above (0.101, 0.099 and 0.152 points against 0.115). So the
+propensity's small spread is not harmless. Correcting for it moves the effect on
+visit by a quarter, which is what happens if the users the features mark as more
+likely to be treated also visit more. The two corrections
+that read the features agree with each other and disagree with the one that
+reads the file order, which says that the features do not carry the tests the
+way the blocks would, or that the reading of the runs as tests is wrong; the
+source settles neither. By the rule fixed before the check, the primary
+estimate stays the difference of means, and every effect below is read with
+this range in mind.
+
+![The primary estimate and its sensitivity versions](reports/figures/fig2_ate_versions.png)
+
+### The primary outcome, decided by the power analysis
+
+([`reports/power.json`](reports/power.json)). The rule, pushed while the ATE was
+running (§8.3): an outcome supports heterogeneity at a subgroup size if a
+subgroup whose effect differs from the rest's by as much as the average effect
+would be detected with power 0.8, at a level divided by the number of such
+subgroups, on the sample sizes of the test partition; `visit` stays primary
+unless `conversion` supports deciles. It does: against the rest, a decile's
+minimum detectable effect on conversion is 0.81 times the ATE, so **conversion,
+the business metric, becomes the primary outcome**. The margin is not wide: a
+subgroup of 5 % needs 1.18 times the ATE and a percentile 2.9 times, and with
+the weighted or subclassified ATE the decile ratio would be 0.92 or 0.95.
+Visit supports subgroups down to 2 % (0.93) and not percentiles (1.37).
+
+![Minimum detectable effect of a subgroup contrast, over the ATE](reports/figures/fig3_mde_by_subgroup.png)
 
 **Written down before the results, on purpose.** If the effect is not
 heterogeneous enough to rank by, that is the result: when uplift modeling is not
@@ -141,10 +196,12 @@ the conclusion looks better.
 - The effect measured is that of being assigned to the campaign (intention to
   treat), diluted by the 96 % of treated users who never saw an ad. The effect on
   the exposed needs instrumental variables, and is out of scope.
-- Fine heterogeneity on conversion, at a rate of 0.29 %, may not be identifiable
-  at this sample size. The power analysis decides, before any model is fitted.
+- Fine heterogeneity on conversion, at a rate of 0.29 %, is not detectable at
+  this sample size below subgroups of about 10 % (the power analysis above).
 - The costs and the value of a conversion are assumptions, swept over ranges
   fixed in advance.
+- 18.6 % of the test rows repeat a feature vector seen in train. If those are
+  the same users, the test figures are partly in sample.
 - The propensity is treated as constant by a rule fixed in advance, which it
   passed at the margin, while the features show a small but real spread (§6.4,
   §6.5). A check on the features can only refute a constant propensity, never

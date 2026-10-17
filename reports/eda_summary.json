@@ -1,0 +1,110 @@
+{
+  "duplicates": {
+    "distinct_vectors": 11859441,
+    "largest_repetition": 24,
+    "rows": 13979592,
+    "rows_in_a_repeated_vector": 3560505,
+    "test_rows_whose_vector_is_in_train": 0.1856706813289946,
+    "val_rows_whose_vector_is_in_train": 0.18537274698328063
+  },
+  "features": {
+    "f0": {
+      "distinct_float32": 2181959,
+      "distinct_float32_in_parquet": 2181959,
+      "distinct_float64": 2181959,
+      "float64_values_merged": 0,
+      "rows_with_a_merged_value": 0
+    },
+    "f1": {
+      "distinct_float32": 60,
+      "distinct_float32_in_parquet": 60,
+      "distinct_float64": 60,
+      "float64_values_merged": 0,
+      "rows_with_a_merged_value": 0
+    },
+    "f10": {
+      "distinct_float32": 483634,
+      "distinct_float32_in_parquet": 483634,
+      "distinct_float64": 517372,
+      "float64_values_merged": 66212,
+      "rows_with_a_merged_value": 80469
+    },
+    "f11": {
+      "distinct_float32": 136,
+      "distinct_float32_in_parquet": 136,
+      "distinct_float64": 136,
+      "float64_values_merged": 0,
+      "rows_with_a_merged_value": 0
+    },
+    "f2": {
+      "distinct_float32": 808663,
+      "distinct_float32_in_parquet": 808663,
+      "distinct_float64": 2051900,
+      "float64_values_merged": 1745725,
+      "rows_with_a_merged_value": 4836685
+    },
+    "f3": {
+      "distinct_float32": 552,
+      "distinct_float32_in_parquet": 552,
+      "distinct_float64": 552,
+      "float64_values_merged": 0,
+      "rows_with_a_merged_value": 0
+    },
+    "f4": {
+      "distinct_float32": 260,
+      "distinct_float32_in_parquet": 260,
+      "distinct_float64": 260,
+      "float64_values_merged": 0,
+      "rows_with_a_merged_value": 0
+    },
+    "f5": {
+      "distinct_float32": 132,
+      "distinct_float32_in_parquet": 132,
+      "distinct_float64": 132,
+      "float64_values_merged": 0,
+      "rows_with_a_merged_value": 0
+    },
+    "f6": {
+      "distinct_float32": 1645,
+      "distinct_float32_in_parquet": 1645,
+      "distinct_float64": 1645,
+      "float64_values_merged": 0,
+      "rows_with_a_merged_value": 0
+    },
+    "f7": {
+      "distinct_float32": 622143,
+      "distinct_float32_in_parquet": 622143,
+      "distinct_float64": 622143,
+      "float64_values_merged": 0,
+      "rows_with_a_merged_value": 0
+    },
+    "f8": {
+      "distinct_float32": 3743,
+      "distinct_float32_in_parquet": 3743,
+      "distinct_float64": 3743,
+      "float64_values_merged": 0,
+      "rows_with_a_merged_value": 0
+    },
+    "f9": {
+      "distinct_float32": 1594,
+      "distinct_float32_in_parquet": 1594,
+      "distinct_float64": 1594,
+      "float64_values_merged": 0,
+      "rows_with_a_merged_value": 0
+    }
+  },
+  "run": {
+    "arrow_cpu_threads": 6,
+    "cpu_count": 6,
+    "machine": "x86_64",
+    "memory_total_gib": 4.8,
+    "packages": {
+      "numpy": "2.4.6",
+      "pyarrow": "26.0.0"
+    },
+    "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.36",
+    "python": "3.11.2",
+    "seconds": 144.4
+  },
+  "source_file": "criteo-research-uplift-v2.1.csv.gz"
+}
