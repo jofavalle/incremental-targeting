@@ -235,9 +235,22 @@ class SimulationConfig:
     """The generator and the grid of the simulation study (docs/design.md §6.2).
 
     Fixed on 2026-10-17, before any learner existed, and never extended. The
-    sample size `n` and the number of replications `R` arrive before the study
-    runs, once the learners exist and the cost of one replication is measured.
+    sample sizes and the number of replications were added the same day, once
+    the learners existed and the cost of one replication had been measured
+    (about 22 s with 2 threads at n = 100,000), and before the study ran.
     """
+
+    #: Units of the training sample of each replication.
+    n: int = 100_000
+
+    #: Units of the independent validation sample, on which the PEHE and the
+    #: transformed-outcome criterion are computed (§6.2, §6.3).
+    n_validation: int = 100_000
+
+    #: Replications per configuration. The Monte Carlo standard error of a PEHE
+    #: is its spread over replications divided by sqrt(40), about a sixth of it;
+    #: pairwise differences between learners remove the shared part.
+    replications: int = 40
 
     #: The mean effect is this lift times the base rate: of the order of the lift
     #: measured on `visit`.

@@ -75,3 +75,11 @@ def test_the_learner_setting_is_the_declared_one_and_its_seeds_are_its_own():
         learners.random_state,
     ]
     assert len(set(seeds)) == len(seeds)
+
+
+def test_the_study_size_is_the_declared_one():
+    assert (SIMULATION.n, SIMULATION.n_validation, SIMULATION.replications) == (
+        100_000,
+        100_000,
+        40,
+    )
