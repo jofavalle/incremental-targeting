@@ -114,6 +114,46 @@ def test_the_x_learner_weighs_the_control_model_by_the_propensity():
     np.testing.assert_allclose(learner.predict(data.x), expected)
 
 
+class _RowCounter:
+    """A stand-in model that predicts how many rows it was fitted on."""
+
+    def __init__(self, x, *args, **kwargs):
+        self.rows = x.shape[0]
+
+    def predict(self, x):
+        return np.full(x.shape[0], float(self.rows))
+
+
+def test_the_x_learner_puts_the_propensity_on_the_model_of_the_controls(monkeypatch):
+    # §5.3: tau_hat_0 is fitted on the controls and gets the weight e. With
+    # models that predict their own training size, the prediction is
+    # e * n_controls + (1 - e) * n_treated, and swapping the two would show.
+    data = _simulate("reference", 4_000, seed=9)
+    monkeypatch.setattr("uplift.learners.x.base.fit", _RowCounter)
+    learner = XLearner(SMALL, PROPENSITY, constant_propensity=True, threads=1)
+    learner.fit(data.x, data.t, data.y)
+    n1 = int(data.t.sum())
+    n0 = data.t.size - n1
+    e = n1 / data.t.size
+    np.testing.assert_allclose(learner.predict(data.x[:5]), e * n0 + (1 - e) * n1)
+
+
+def test_the_estimated_propensity_of_the_dr_learner_is_cross_fitted():
+    # Moving one unit's covariates may change the models of the other folds
+    # (outcome and propensity alike), never those of its own fold.
+    data = _simulate("confounded", 6_000, seed=10)
+    learner = DRLearner(SMALL, PROPENSITY, constant_propensity=False, threads=1)
+    phi = learner.pseudo_outcome(data.x, data.t, data.y)
+    folds = assign_folds([data.t], SMALL.n_folds, SMALL.fold_seed)
+    unit = int(np.flatnonzero(folds == 0)[0])
+    x = data.x.copy()
+    x[unit] = x[unit] + 3.0
+    changed = learner.pseudo_outcome(x, data.t, data.y)
+    same_fold = (folds == 0) & (np.arange(x.shape[0]) != unit)
+    np.testing.assert_array_equal(changed[same_fold], phi[same_fold])
+    assert not np.array_equal(changed[folds != 0], phi[folds != 0])
+
+
 def test_an_estimated_propensity_follows_x1_and_is_clipped():
     data = _simulate("confounded", 20_000, seed=5)
     learner = XLearner(SMALL, PROPENSITY, constant_propensity=False, threads=1)
