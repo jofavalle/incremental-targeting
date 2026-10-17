@@ -12,7 +12,9 @@ They are the split seed and fractions, the simulation grid with its sample size
 `n` and number of replications `R`, the costs and the grid of budgets `K`, and the
 definitions of the evaluation curves in section 7, the AUC threshold of the
 propensity check (section 6.4) and the multiplicity correction of the power
-analysis (section 8.2). Their values live in `src/uplift/config.py`.
+analysis (section 8.2). Their values live in `src/uplift/config.py`, and each
+one is committed there before the code that evaluates it, so the history of that
+file shows that it was fixed first.
 
 Every figure quoted here is of one of three kinds, and says which: measured by
 a run that wrote a JSON file under `reports/` with the machine, the package

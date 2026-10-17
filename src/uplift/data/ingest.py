@@ -43,6 +43,7 @@ import pyarrow as pa
 import pyarrow.csv as pacsv
 import pyarrow.parquet as pq
 
+from uplift.config import DATA_PROCESSED, DATA_RAW, REPORTS_DIR
 from uplift.runinfo import run_metadata, write_json
 
 FEATURES = tuple(f"f{i}" for i in range(12))
@@ -55,9 +56,9 @@ SCHEMA = pa.schema(
     [(ROW_ID, pa.uint32())] + [(name, SOURCE_TYPES[name]) for name in SOURCE_COLUMNS]
 )
 
-DEFAULT_SRC = Path("data/raw/criteo-research-uplift-v2.1.csv.gz")
-DEFAULT_DST = Path("data/processed/criteo_uplift.parquet")
-DEFAULT_SUMMARY = Path("reports/data_summary.json")
+DEFAULT_SRC = DATA_RAW / "criteo-research-uplift-v2.1.csv.gz"
+DEFAULT_DST = DATA_PROCESSED / "criteo_uplift.parquet"
+DEFAULT_SUMMARY = REPORTS_DIR / "data_summary.json"
 
 ROWS_PER_GROUP = 1 << 20
 MAX_RECORDED_RUNS = 1000  # beyond this, the summary keeps the count and not the runs

@@ -18,8 +18,13 @@ Reproducibility: the same input, seed and fractions give the same partition
 under the locked NumPy. NumPy does not promise that Generator streams are stable
 across releases, which is one more reason uv.lock is part of the contract.
 
-The seed and the fractions are not defaults of this module. They live in
-uplift.config, fixed by hand before any evaluation.
+## Coupling with config.py
+
+`config.py`, the single source for the seed and the fractions, defines
+`SplitConfig` with `seed` and `fractions`. `split` is **duck-typed**: it accepts
+any object with those two attributes, so the tests pass a plain namespace and
+the module imposes nothing the config does not already declare. Neither value
+has a default here: both are fixed in config.py before any evaluation.
 
 Usage:
     python -m uplift.data.split
@@ -38,14 +43,15 @@ import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
 
+from uplift.config import CONFIG, DATA_PROCESSED, REPORTS_DIR
 from uplift.data.ingest import DEFAULT_DST
 from uplift.runinfo import run_metadata, write_json
 
 STRATA = ("treatment", "visit", "conversion")
 PARTITIONS = ("train", "val", "test")
 
-DEFAULT_OUT_DIR = DEFAULT_DST.parent
-DEFAULT_SUMMARY = Path("reports/split_summary.json")
+DEFAULT_OUT_DIR = DATA_PROCESSED
+DEFAULT_SUMMARY = REPORTS_DIR / "split_summary.json"
 
 
 def _check_fractions(fractions: Sequence[float]) -> tuple[float, float, float]:
@@ -102,15 +108,20 @@ def assign_partitions(
     return labels
 
 
-def split(src: Path, out_dir: Path, *, fractions: Sequence[float], seed: int) -> dict:
+def split(src: Path, out_dir: Path, cfg) -> dict:
     """Write train.parquet, val.parquet and test.parquet under `out_dir`; return the summary.
 
+    `cfg` is anything with `seed` and `fractions` (see the module docstring).
     The summary holds sizes and the treatment share of each partition. It holds
     no outcome by arm: the outcomes of the test partition are looked at once,
     at the end, and not in a split report.
     """
     started = time.perf_counter()
-    fractions = _check_fractions(fractions)
+    for attribute in ("seed", "fractions"):
+        if not hasattr(cfg, attribute):
+            raise AttributeError(f"SplitConfig has no attribute '{attribute}'; see config.py.")
+    seed = _check_seed(cfg.seed)
+    fractions = _check_fractions(cfg.fractions)
     parquet = pq.ParquetFile(src)
     strata = parquet.read(columns=list(STRATA))
     treatment = strata.column("treatment").to_numpy()
@@ -166,14 +177,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--summary", type=Path, default=DEFAULT_SUMMARY)
     args = parser.parse_args(argv)
 
-    # Imported here and not at module level: config.py holds values fixed by
-    # hand before any evaluation, and the functions above take them as
-    # arguments so they can be tested without it.
-    from uplift import config
-
-    summary = split(
-        args.src, args.out_dir, fractions=config.SPLIT_FRACTIONS, seed=config.SPLIT_SEED
-    )
+    summary = split(args.src, args.out_dir, CONFIG.split)
     write_json(args.summary, summary)
     sizes = ", ".join(f"{k} {v['rows']}" for k, v in summary["partitions"].items())
     print(f"{sizes} -> {args.out_dir}; summary -> {args.summary}")

@@ -34,20 +34,23 @@ import subprocess
 import sys
 import tempfile
 import time
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
 
+from uplift.config import CONFIG, REPORTS_DIR
 from uplift.data.ingest import DEFAULT_DST, DEFAULT_SRC, FEATURES, ingest
 from uplift.data.split import split
 from uplift.runinfo import run_metadata, write_json
 
 STAGES = ("ingest", "split", "fit")
-PROBE_SEED = 0  # throwaway: the split files are deleted and the peak does not depend on it
-PROBE_FRACTIONS = (0.6, 0.2, 0.2)  # the 60/20/20 of docs/design.md §4; the fit needs train's size
-DEFAULT_OUT = Path("reports/peak_memory.json")
+# The project's split with a throwaway seed: the files are deleted, and the peak
+# depends on the fractions (train's size), not on which rows land where.
+PROBE_SPLIT = replace(CONFIG.split, seed=0)
+DEFAULT_OUT = REPORTS_DIR / "peak_memory.json"
 
 
 def _fit(workdir: Path, threads: int, rounds: int) -> dict:
@@ -78,9 +81,7 @@ def run_stage(stage: str, src: Path, workdir: Path, threads: int, rounds: int) -
     if stage == "ingest":
         extra = {"rows": ingest(src, workdir / DEFAULT_DST.name)["rows"]}
     elif stage == "split":
-        summary = split(
-            workdir / DEFAULT_DST.name, workdir, fractions=PROBE_FRACTIONS, seed=PROBE_SEED
-        )
+        summary = split(workdir / DEFAULT_DST.name, workdir, PROBE_SPLIT)
         extra = {"rows": {k: v["rows"] for k, v in summary["partitions"].items()}}
     elif stage == "fit":
         extra = _fit(workdir, threads, rounds)

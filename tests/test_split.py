@@ -2,16 +2,24 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import numpy as np
 import pyarrow.parquet as pq
 import pytest
 
 from conftest import format_rows, make_columns, write_csv_gz
 
+from uplift.config import CONFIG
 from uplift.data.ingest import ROW_ID, SOURCE_COLUMNS, ingest
 from uplift.data.split import PARTITIONS, STRATA, assign_partitions, split
 
 FRACTIONS = (0.6, 0.2, 0.2)
+
+
+def _cfg(seed: int) -> SimpleNamespace:
+    # Duck-typed like the real SplitConfig: only `seed` and `fractions` matter.
+    return SimpleNamespace(seed=seed, fractions=FRACTIONS)
 
 
 def _strata(n_rows: int, seed: int = 0) -> list[np.ndarray]:
@@ -90,7 +98,7 @@ def _row_ids(path):
 
 
 def test_streamed_files_match_the_assignment(tmp_path, ingested_parquet):
-    summary = split(ingested_parquet, tmp_path, fractions=FRACTIONS, seed=11)
+    summary = split(ingested_parquet, tmp_path, _cfg(11))
     source = pq.read_table(ingested_parquet)
     labels = assign_partitions([source[name].to_numpy() for name in STRATA], FRACTIONS, seed=11)
 
@@ -116,7 +124,7 @@ def test_partition_does_not_depend_on_row_group_size(tmp_path, synthetic_csv_gz)
     for rows_per_group in (1000, 7000):
         work = tmp_path / str(rows_per_group)
         ingest(synthetic_csv_gz, work / "all.parquet", rows_per_group=rows_per_group)
-        split(work / "all.parquet", work, fractions=FRACTIONS, seed=5)
+        split(work / "all.parquet", work, _cfg(5))
         ids.append(_row_ids(work / "test.parquet"))
     np.testing.assert_array_equal(ids[0], ids[1])
 
@@ -132,7 +140,7 @@ def test_leaves_nothing_behind_on_a_failure_mid_stream(tmp_path, ingested_parque
     monkeypatch.setattr(pq.ParquetFile, "read_row_group", fail_on_the_second_group)
     out = tmp_path / "out"
     with pytest.raises(OSError, match="disk went away"):
-        split(ingested_parquet, out, fractions=FRACTIONS, seed=0)
+        split(ingested_parquet, out, _cfg(0))
     assert list(out.iterdir()) == []
 
 
@@ -143,5 +151,15 @@ def test_refuses_to_write_an_empty_partition(tmp_path):
     ingest(src, tmp_path / "one.parquet")
     out = tmp_path / "out"
     with pytest.raises(ValueError, match="empty"):
-        split(tmp_path / "one.parquet", out, fractions=FRACTIONS, seed=0)
+        split(tmp_path / "one.parquet", out, _cfg(0))
     assert not out.exists()
+
+
+def test_the_real_config_is_a_valid_split():
+    labels = assign_partitions(_strata(10_000), CONFIG.split.fractions, CONFIG.split.seed)
+    assert set(np.unique(labels)) == {0, 1, 2}
+
+
+def test_a_config_without_a_seed_is_refused(tmp_path, ingested_parquet):
+    with pytest.raises(AttributeError, match="seed"):
+        split(ingested_parquet, tmp_path, SimpleNamespace(fractions=FRACTIONS))
