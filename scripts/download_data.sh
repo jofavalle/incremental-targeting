@@ -13,7 +13,7 @@
 # trusted blindly.
 #
 # The file stays compressed. Ingestion reads the .gz as a stream and never
-# writes the ~3 GB CSV to disk.
+# writes the uncompressed CSV to disk.
 #
 # Idempotent: if the file is already there and its checksum matches, it does not
 # download again. A file with the wrong checksum is never moved into place.

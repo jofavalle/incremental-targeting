@@ -10,12 +10,14 @@ Some choices are **fixed before evaluation**: they are decided before any result
 on the validation or test partitions is seen, and they are not changed after.
 They are the split seed and fractions, the simulation grid with its sample size
 `n` and number of replications `R`, the costs and the grid of budgets `K`, and the
-definitions of the evaluation curves in section 7. Their values live in
-`src/uplift/config.py`.
+definitions of the evaluation curves in section 7, the AUC threshold of the
+propensity check (section 6.4) and the multiplicity correction of the power
+analysis (section 8.2). Their values live in `src/uplift/config.py`.
 
-Every figure quoted here comes from a run that wrote a JSON file with the
-machine, the package versions, the seed and the threads. Figures derived from
-those (by arithmetic, not by a new run) say so.
+Every figure quoted here is of one of three kinds, and says which: measured by
+a run that wrote a JSON file under `reports/` with the machine, the package
+versions, the seed and the threads; derived from those by arithmetic, not by a
+new run; or quoted from the source, which is named.
 
 ## 2. Causal framework
 
@@ -45,15 +47,29 @@ $$\mathrm{ATE} = E[Y \mid T = 1] - E[Y \mid T = 0],$$
 reported with its confidence interval (normal approximation for a difference
 of two proportions, appropriate at millions of rows).
 
-**That premise is checked, not assumed.** Criteo-UPLIFT assembles several
-incrementality tests, each randomized, and the share of treated users drifts
-along the file (section 3.4). If the tests had different treatment ratios and
-the features tell the tests apart, randomization holds only given $X$: the
+**That premise is checked, not assumed, and the check can only refute it.**
+Criteo-UPLIFT assembles several incrementality tests, each randomized, and the
+file is sorted by treatment within blocks (section 3.4). If the tests had
+different treatment ratios, the pooled data are randomized only within a test.
+When the features tell the tests apart, randomization holds given $X$: the
 propensity $e(x) = P(T = 1 \mid X = x)$ is not constant, the raw difference of
 means is not the ATE, and every formula below that uses a constant $e$ must use
-$e(x)$ instead. Section 6.4 settles it before any effect is estimated. If $e(x)$
-is not constant, it is estimated, and the ATE is computed by inverse propensity
-weighting (or AIPW, section 5.4) instead of a raw difference of means.
+$e(x)$. Section 6.4 tests this before any effect is estimated. A pass does not
+prove the premise: a check on $X$ cannot see tests that differ in ratio but not
+in $X$. That residual case is an **assumption** of the project, with its source:
+the publisher describes the treatment as randomized and gives one treatment
+ratio for the dataset.
+
+If section 6.4 refutes a constant propensity, $\hat e(x)$ is estimated with
+cross-fitting (no unit's $\hat e$ comes from a model fitted on that unit, which
+would push $\hat e$ towards $T$) and clipped away from 0 and 1. Every difference
+of means in this design then takes its weighted form: over a set $S$ of units,
+
+$$\hat\tau_S = \frac{1}{|S|}\sum_{i \in S}\Big[\frac{T_i\,Y_i}{\hat e(X_i)} - \frac{(1 - T_i)\,Y_i}{1 - \hat e(X_i)}\Big],$$
+
+or its normalized (Hájek) version. That covers the ATE, $Z$ (section 6.3), the
+X- and DR-learners (sections 5.3 and 5.4), the calibration by decile (section
+6.4), the curves of section 7 and the policy values of section 9.
 
 Two consequences carry the rest of the design, under constant $e$ or given $X$:
 
@@ -134,21 +150,32 @@ identified by instrumental variables, with `treatment` as the instrument for
 A test, `test_no_exposure_leakage`, asserts that `exposure` never reaches a
 feature matrix.
 
+**`row_id` has the same status.** It records the position of a row in the
+source file, and position predicts treatment almost perfectly (section 3.4).
+Feature matrices are built by selecting `f0` to `f11` by name, never by
+excluding columns, so that no other column can slip in.
+
 ### 3.4 Infrastructure
 
-- The download keeps the file compressed (311 MB). The ingest streams the
-  gzip through pyarrow's CSV reader into Parquet (zstd, row groups of $2^{20}$
-  rows) and never writes the uncompressed CSV to disk.
+- The download keeps the file compressed (311,422,618 bytes, the size its LFS
+  pointer states and the download checks). The ingest streams the gzip through
+  pyarrow's CSV reader into Parquet (zstd, row groups of $2^{20}$ rows) and
+  never writes the uncompressed CSV to disk.
 - Types are declared, not inferred: features as `float32`, the four flags as
   `int8`. `float32` keeps about seven significant digits, so distinct source
   values can collapse into one; the effect on ties is checked in the EDA.
-- A `row_id` column keeps the position of each row in the source file. **The
-  file is not in random order.** The share of treated users, recorded per row
-  group of $2^{20}$ rows in `reports/data_summary.json`, is 1.0 in the first
-  five groups and 0.3137 in the sixth. Nothing may rely on position (a head, a
-  tail, a slice is a biased sample), and the drift is why section 2.3 does not
-  take a constant propensity for granted. The `row_id` makes the split
-  reproducible and joinable.
+- **The file is not in random order: it is sorted by treatment within
+  blocks.** `reports/data_summary.json` records thirteen runs of constant
+  treatment, the first of 5,571,799 treated users in a row. The treated share of
+  consecutive pairs of runs ranges from 0.55 to 0.96 (derived); if each pair is
+  one of the assembled tests, which the source does not say, the tests had
+  different ratios (section 2.3).
+- Nothing may rely on position. A head, a tail or a contiguous slice is a biased
+  sample, and the train, validation and test files keep the source order, so
+  this holds inside them too. Folds, subsamples and early-stopping sets are
+  drawn by a seeded random permutation, never as contiguous blocks.
+- A `row_id` column keeps the position of each row, so that any partition can
+  be traced back to the source. It is never a feature (section 3.3).
 - The smallest machine of the project has 2 cores and 3.7 GiB. `make memory`
   measures the peak resident memory of the ingest, the split and a LightGBM fit
   on the whole train partition, each in its own process, with 2 threads.
@@ -184,6 +211,17 @@ reproducible from the same input, seed and fractions under the locked NumPy
 The learner is chosen on validation. Choosing it by looking at the test would
 bias the reported curves upwards. The split report records the size and the
 treatment share of each partition, and no outcome broken down by arm.
+
+Stratifying by the outcomes has a consequence that must be said. With exact
+cuts in every cell of treatment and outcome, the two-by-two table of each
+partition is that of the whole dataset up to rounding, so **the ATE is the same
+in every partition by construction**: the ATE measured in H2 on train is,
+numerically, the ATE of the test. The single look protects the evaluation of
+the CATE (the ranking, the curves, the policies), not the ATE. Stratifying by
+treatment alone would leave the outcome counts of the test to sampling noise
+(about 1 % on the count of conversions, derived) and keep its ATE unknown until
+the end. The design keeps the stratification by outcome, for the share of rare
+positives in every partition, and accepts this consequence.
 
 ## 5. Estimators
 
@@ -244,16 +282,19 @@ then $\hat\tau(x)$ is a regression of $\varphi$ on $X$. Its expectation given
 $X$ is $\tau(X)$ if either the outcome models or the propensity are correct.
 
 It is written by hand, without `econml` or `causalml`, with **cross-fitting**:
-the data are cut into folds, the nuisance models ($\hat\mu_0$, $\hat\mu_1$,
+the data are cut into folds by a seeded random permutation (never contiguous
+blocks, section 3.4), the nuisance models ($\hat\mu_0$, $\hat\mu_1$,
 $\hat e$) are fitted on all folds but one and $\varphi$ is computed on the
 held-out fold, so that no unit's pseudo-outcome uses a model fitted on that
 unit. An estimated propensity is clipped away from 0 and 1, at a bound fixed in
 `config.py`.
 
-In the randomized data $e$ is known and constant, and double robustness buys
-little. The DR-learner earns its place in simulation scenario 6, with
-confounding, where the S- and T-learners are expected to fail and the DR-learner
-to survive.
+If section 6.4 does not refute a constant propensity, $e$ is known and double
+robustness buys little. The DR-learner earns its place in simulation scenario 6,
+with confounding. There the S- and T-learners remain consistent, since there is
+no unmeasured confounding, but where overlap is poor they extrapolate and their
+regularization bias is no longer averaged out, so they are expected to degrade;
+the DR-learner corrects with the propensity.
 
 ### 5.5 Implementation
 
@@ -305,7 +346,7 @@ and in `config.py`, and not extended.
 | 3 | Complex baseline, simple effect | Does the S-learner shrink the effect towards zero? |
 | 4 | Null effect, $\tau \equiv 0$ | Do the learners invent heterogeneity? |
 | 5 | Sleeping dogs, $\tau(x) < 0$ in a region | Do the learners find them? |
-| 6 | Confounding, $e(x)$ depends on $X$ | Do S and T fail? Does DR survive? |
+| 6 | Confounding, $e(x)$ depends on $X$ | Do S and T degrade where overlap is poor? Does DR correct it? |
 
 Scenario 2 replicates the 85/15 of Criteo: the simulation predicts which learner
 should win on the real data, and that prediction is checked.
@@ -359,11 +400,14 @@ a finding.
 1. **$\mathrm{mean}(\hat\tau) \approx \mathrm{ATE}$** on the same partition,
    within the interval of the ATE.
 2. **Balance and constant propensity.** Standardized mean differences of every
-   feature between the arms; and a classifier of $T$ on $X$ evaluated out of
-   sample, whose AUC should be close to 0.5 (with its interval). This check
-   runs **first**, before any ATE, because the treatment share drifts along the
-   file (section 3.4). If it fails, an estimated $e(x)$ replaces the constant
-   $e$ in the ATE (section 2.3), in $Z$ and in the X- and DR-learners.
+   feature between the arms; and a classifier of $T$ on $X$, fitted on train
+   and evaluated on validation. The AUC above which the propensity is declared
+   not constant is fixed in `config.py` before the check runs: with millions of
+   rows any interval excludes 0.5, so "close to 0.5" needs a number. The check
+   runs **first**, before any ATE, because of the order of the file (section
+   3.4). It can refute a constant propensity, not confirm it (section 2.3); if
+   it refutes it, the weighted forms of section 2.3 replace every difference of
+   means.
 3. **Calibration by decile of $\hat\tau$.** Within each decile of the predicted
    uplift, the observed uplift (difference of means within the decile, valid by
    section 2.3) against the mean prediction, each with its interval. The
@@ -393,7 +437,8 @@ units, and $Y_T(n)$ and $Y_C(n)$ the sums of the outcome in each arm.
 - **AUUC:** the area between the uplift curve and its random baseline, on the
   fraction axis $\phi = n / N$ and divided by $N$:
   $\mathrm{AUUC} = \frac{1}{N}\int_0^1 \big[U(\phi N) - \phi\,U(N)\big]\,d\phi$,
-  by the trapezoid rule on $\phi \in \{0.01, 0.02, \ldots, 1\}$. The Qini
+  by the trapezoid rule on $\phi \in \{0, 0.01, \ldots, 1\}$ with
+  $U(0) = 0$. The Qini
   coefficient is the same area for $Q$.
 
 Two tests pin the implementation: a random $\hat\tau$ gives a flat curve
@@ -436,11 +481,15 @@ weighted estimator, larger than the formula above, and the calculation uses it.
 
 ### 8.2 Power for heterogeneity
 
-The uplift is estimated over subgroups, and power falls with subgroup size. The
-same calculation is repeated for the controls available in a subgroup: about 42
-thousand in a decile of the test partition and about 4.2 thousand in a
-percentile (derived). For each outcome the result is the minimum detectable
-effect as a function of subgroup size. If fine heterogeneity on `conversion` is
+The uplift is estimated over subgroups, and power falls with subgroup size:
+about 42 thousand controls in a decile of the test partition and about 4.2
+thousand in a percentile (derived). Heterogeneity is a **difference between
+subgroups**, not a subgroup against zero, so the relevant minimum detectable
+effect is that of a contrast. For a decile against the rest of the sample the
+variance grows by a factor $1 + 1/9$ and the MDE by about 1.054; for two
+deciles, by $\sqrt{2}$. With ten or a hundred subgroups the level is corrected
+for multiplicity, with a correction fixed before evaluation. For each outcome
+the result is the MDE of such a contrast as a function of subgroup size. If fine heterogeneity on `conversion` is
 not detectable at these sizes, that is the conclusion, reported with the
 calculation; on `visit` the same calculation is expected to be far more
 favourable, and is checked.
@@ -465,7 +514,8 @@ Evaluated on the test partition, once.
 
 For a policy, the incremental conversions of contacting its top $K$ are the
 uplift curve of its score at $K$, $U(K)$ of section 7.1: valid because the top
-$K$ is defined by $X$ alone, and randomization holds within it. Policy 1 gives
+$K$ is defined by $X$ alone, and randomization holds within it (in its weighted
+form if the propensity is not constant, section 2.3). Policy 1 gives
 zero and policy 2 gives $K \cdot \mathrm{ATE}$ in expectation. The headline
 metric is incremental conversions per 1,000 of budget, $1000\,U(K) / (K c)$.
 
