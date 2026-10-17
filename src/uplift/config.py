@@ -6,9 +6,10 @@ the codebase.
 Each value is committed before any result that depends on it, so the history
 shows that it was fixed first (docs/design.md §1): an assumption is never bent
 after seeing the results. This version fixes the paths, the split, the
-propensity check, the settings of the effect estimates and the power analysis.
-The simulation grid with `n` and `R`, the costs and the grid of budgets `K`
-arrive with their milestones, each one before its evaluation.
+propensity check, the settings of the effect estimates, the power analysis and
+the simulation grid. The simulation's `n` and `R`, the learners' settings, the
+costs and the grid of budgets `K` arrive with their milestones, each one before
+its evaluation.
 """
 
 from __future__ import annotations
@@ -198,6 +199,72 @@ class PowerConfig:
 
 
 # --------------------------------------------------------------------------
+# Simulation study
+# --------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Scenario:
+    """One configuration of the simulation grid (docs/design.md §6.2).
+
+    The defaults are the reference configuration; each scenario changes one thing.
+    """
+
+    #: A short name, used in the records and the tables.
+    name: str
+
+    #: The numbered questions of §6.2 this configuration answers.
+    questions: tuple[int, ...]
+
+    base_rate: float = 0.05
+    treat_ratio: float = 0.85
+
+    #: "simple" (linear logit) or "complex" (nonlinear, with an interaction).
+    baseline: str = "simple"
+
+    #: "heterogeneous", "step", "null" or "sleeping_dogs".
+    effect: str = "heterogeneous"
+
+    #: If true, the propensity depends on x1, which also moves the baseline and
+    #: the effect (scenario 6).
+    confounded: bool = False
+
+
+@dataclass(frozen=True)
+class SimulationConfig:
+    """The generator and the grid of the simulation study (docs/design.md §6.2).
+
+    Fixed on 2026-10-17, before any learner existed, and never extended. The
+    sample size `n` and the number of replications `R` arrive before the study
+    runs, once the learners exist and the cost of one replication is measured.
+    """
+
+    #: The mean effect is this lift times the base rate: of the order of the lift
+    #: measured on `visit`.
+    relative_effect: float = 0.25
+
+    #: The intercept of the baseline is calibrated to the base rate on this many
+    #: seeded draws of X, shared by every configuration.
+    calibration_rows: int = 1_000_000
+    calibration_seed: int = 202610171
+
+    #: Root seed of the replications: replication r of configuration s draws from
+    #: SeedSequence([replication_seed, s, r]), so each one can be rerun alone.
+    replication_seed: int = 202610172
+
+    scenarios: tuple[Scenario, ...] = (
+        Scenario("reference", questions=(1, 2)),
+        Scenario("rare_outcome", questions=(1,), base_rate=0.003),
+        Scenario("common_outcome", questions=(1,), base_rate=0.20),
+        Scenario("balanced", questions=(2,), treat_ratio=0.5),
+        Scenario("complex_baseline", questions=(3,), baseline="complex", effect="step"),
+        Scenario("null_effect", questions=(4,), effect="null"),
+        Scenario("sleeping_dogs", questions=(5,), effect="sleeping_dogs"),
+        Scenario("confounded", questions=(6,), confounded=True),
+    )
+
+
+# --------------------------------------------------------------------------
 # Everything together
 # --------------------------------------------------------------------------
 
@@ -210,6 +277,7 @@ class Config:
     propensity: PropensityConfig = field(default_factory=PropensityConfig)
     effect: EffectConfig = field(default_factory=EffectConfig)
     power: PowerConfig = field(default_factory=PowerConfig)
+    simulation: SimulationConfig = field(default_factory=SimulationConfig)
 
 
 CONFIG = Config()
