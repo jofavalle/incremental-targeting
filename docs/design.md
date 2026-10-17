@@ -305,6 +305,24 @@ DR-learner too, rather than taking it from a library, departs from the original
 plan: it is the one whose correctness depends on details (cross-fitting,
 clipping) that a library call hides.
 
+**Fixed on 2026-10-17, before any learner was evaluated.** The values live in
+`LearnerConfig`, in `config.py`.
+
+- **One LightGBM setting for all four,** fixed rounds and no early stopping (an
+  early-stopping set would be one more draw to get right, section 3.4).
+  Classifiers for the outcome models ($\hat\mu$, the S-learner's model) and for
+  $\hat e$; regressors, with the same settings, for the X-learner's imputed
+  effects and the DR-learner's pseudo-outcome.
+- **The propensity the X- and DR-learners use** is the known constant when the
+  data are randomized with one ratio: the treated share of the rows they are
+  fitted on, as on Criteo under the constant branch of section 6.4. When the
+  propensity is not constant (simulation scenario 6), it is estimated by the
+  classifier of the propensity check, cross-fitted for the DR-learner, and
+  clipped at the bound of `PropensityConfig`. The learner is told which case
+  holds; it does not decide.
+- **Cross-fitting** of the DR-learner uses `n_folds` folds drawn by
+  `assign_folds`, stratified by the treatment, with its own seed.
+
 ## 6. Validation
 
 ### 6.1 The problem
