@@ -62,7 +62,12 @@ def _load(path: Path) -> tuple[np.ndarray, np.ndarray]:
     return feature_matrix(table), table["treatment"].to_numpy()
 
 
-def _lightgbm_params(cfg, threads: int) -> dict:
+def lightgbm_params(cfg, threads: int) -> dict:
+    """The LightGBM parameters of the propensity classifier, from `PropensityConfig`.
+
+    Shared with the cross-fitted propensity of `uplift.ate`, which must use the
+    same classifier (docs/design.md §6.5).
+    """
     return {
         "objective": "binary",
         "learning_rate": cfg.learning_rate,
@@ -96,7 +101,7 @@ def run_check(
     smd = standardized_mean_differences(x_train, t_train)
     sd_bound, sd_noise = linear_propensity_sd_bound(x_train, t_train)
     n1_train = int(t_train.sum())
-    params = _lightgbm_params(cfg, threads)
+    params = lightgbm_params(cfg, threads)
     booster = lgb.train(params, lgb.Dataset(x_train, label=t_train), cfg.n_estimators)
     train_rows, train_share = t_train.size, float(t_train.mean())
     del x_train
