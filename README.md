@@ -183,6 +183,24 @@ Visit supports subgroups down to 2 % (0.93) and not percentiles (1.37).
 
 ![Minimum detectable effect of a subgroup contrast, over the ATE](reports/figures/fig3_mde_by_subgroup.png)
 
+### The learner, chosen on validation
+
+([`reports/selection.json`](reports/selection.json)). The four learners were
+fitted on train for conversion and scored on validation by the transformed
+outcome (§6.3). **The S-learner has the lowest criterion**, and the paired
+bootstrap interval of its difference from each of the other three excludes
+zero; the gaps are small against the criterion itself, as they must be when $Z$
+is mostly noise. Two cheap checks on validation (§6.4): the mean of
+$\hat\tau$ is 0.094 to 0.099 points for the four learners, just under the
+interval of the ATE (0.100 to 0.130), and close to the weighted and
+subclassified versions above; and by decile of $\hat\tau$, the uplift sits
+almost entirely in the top decile, where the S-learner predicts 0.87 points and
+0.73 are observed (0.58 to 0.88), more than six times the average effect.
+Several learners give fewer than ten deciles, because their $\hat\tau$ takes
+few distinct values and ties are never split.
+
+![Calibration by decile of the predicted uplift, on validation](reports/figures/fig5_calibration.png)
+
 **Written down before the results, on purpose.** If the effect is not
 heterogeneous enough to rank by, that is the result: when uplift modeling is not
 worth the budget, and how to know beforehand, with the power calculation that
