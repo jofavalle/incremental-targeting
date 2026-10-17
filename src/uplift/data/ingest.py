@@ -1,16 +1,17 @@
 """Criteo-UPLIFT CSV.gz to Parquet, as a stream.
 
-The CSV (about 3 GB uncompressed) is never written to disk. The .gz is
-decompressed in memory block by block, parsed with pyarrow's streaming CSV
-reader and written out in row groups, so peak memory is a couple of row groups
-and not the dataset. That is what lets the ingest run on the smallest machine of
-the project (2 cores, 3.7 GiB).
+The uncompressed CSV is never written to disk. The .gz is decompressed in
+memory block by block, parsed with pyarrow's streaming CSV reader and written
+out in row groups, so peak memory is a couple of row groups and not the
+dataset. It is meant to fit the smallest machine of the project (2 cores,
+3.7 GiB); `make memory` measures it.
 
 Types are declared, never inferred: the twelve features as float32 and the four
 binary columns as int8. A `row_id` column records the position of each row in
-the source file. The file is not in random order (its first rows are sorted by
-feature value), so nothing downstream may rely on position; the row_id makes the
-split reproducible and joinable back to the source.
+the source file. The file is not in random order (the treatment share drifts
+along it, which the summary records per row group), so nothing downstream may
+rely on position; the row_id makes the split reproducible and joinable back to
+the source.
 
 The ingest refuses a file that is not what it expects: a header other than the
 sixteen columns of v2.1, a null, a non-finite feature, or a binary column
@@ -93,7 +94,7 @@ def ingest(
     exposure_without_treatment = 0
     conversion_without_visit = 0
     rows = 0
-    row_groups = 0
+    treatment_share_by_group: list[float] = []
 
     read_options = pacsv.ReadOptions(block_size=block_size)
     convert_options = pacsv.ConvertOptions(column_types=SOURCE_TYPES)
@@ -107,6 +108,12 @@ def ingest(
                 raise ValueError(f"unexpected header {header}, expected {SOURCE_COLUMNS}")
 
             with pq.ParquetWriter(tmp, SCHEMA, compression="zstd") as writer:
+
+                def write_group(group: pa.Table) -> None:
+                    writer.write_table(group, row_group_size=rows_per_group)
+                    treated = group["treatment"].to_numpy().sum(dtype=np.int64)
+                    treatment_share_by_group.append(round(float(treated) / group.num_rows, 4))
+
                 pending: list[pa.RecordBatch] = []
                 pending_rows = 0
                 for batch in reader:
@@ -137,20 +144,13 @@ def ingest(
                     # Full row groups of exactly `rows_per_group`; the remainder waits.
                     while pending_rows >= rows_per_group:
                         table = pa.Table.from_batches(pending, schema=SCHEMA)
-                        writer.write_table(
-                            table.slice(0, rows_per_group), row_group_size=rows_per_group
-                        )
-                        row_groups += 1
+                        write_group(table.slice(0, rows_per_group))
                         rest = table.slice(rows_per_group)
                         pending = rest.to_batches()
                         pending_rows = rest.num_rows
 
                 if pending_rows:
-                    writer.write_table(
-                        pa.Table.from_batches(pending, schema=SCHEMA),
-                        row_group_size=rows_per_group,
-                    )
-                    row_groups += 1
+                    write_group(pa.Table.from_batches(pending, schema=SCHEMA))
         if rows == 0:
             raise ValueError(f"{src.name} holds a header and no rows")
     except BaseException:
@@ -169,10 +169,13 @@ def ingest(
         },
         "parquet": {
             "file": dst.name,
-            "row_groups": row_groups,
+            "row_groups": len(treatment_share_by_group),
             "rows_per_group": rows_per_group,
             "compression": "zstd",
         },
+        # Not an analysis: a record of the file's order, so that relying on row
+        # position (a head, a tail, a slice) is visibly wrong.
+        "source_order": {"treatment_share_by_row_group": treatment_share_by_group},
         "run": {**run_metadata(), "seconds": round(time.perf_counter() - started, 1)},
     }
 

@@ -64,6 +64,10 @@ def test_summary_counts(ingested, synthetic_columns):
     converted_without_visit = int(((cols["conversion"] == 1) & (cols["visit"] == 0)).sum())
     assert consistency["exposure_without_treatment"] == exposed_controls
     assert consistency["conversion_without_visit"] == converted_without_visit
+    shares = summary["source_order"]["treatment_share_by_row_group"]
+    assert len(shares) == summary["parquet"]["row_groups"]
+    first_group = cols["treatment"][:ROWS_PER_GROUP]
+    assert shares[0] == round(float(first_group.mean()), 4)
 
 
 def test_summary_records_no_path(ingested, synthetic_csv_gz, tmp_path):
