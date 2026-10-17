@@ -134,22 +134,29 @@ def run_check(
     return record, e_hat, t_val
 
 
-def plot_overlap(e_hat: np.ndarray, t: np.ndarray, path: Path, threshold_note: str) -> None:
-    """Histogram of the estimated propensity by arm, as densities on common bins."""
+def plot_overlap(e_hat: np.ndarray, t: np.ndarray, path: Path, note: str) -> None:
+    """Histogram of the estimated propensity by arm, as densities on common bins.
+
+    The bins span the central 99.9 % of e_hat: a handful of extreme values would
+    otherwise stretch the axis and squeeze the mass into one bar. The density axis
+    is logarithmic, because the arms differ, if at all, in the tails.
+    """
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
     treated = t.astype(bool)
-    bins = np.linspace(e_hat.min(), e_hat.max(), 81)
+    low, high = np.quantile(e_hat, [0.0005, 0.9995])
+    bins = np.linspace(low, high, 81)
     fig, ax = plt.subplots(figsize=(7, 4))
     ax.hist(e_hat[treated], bins=bins, density=True, alpha=0.6, label="treated")
     ax.hist(e_hat[~treated], bins=bins, density=True, alpha=0.6, label="control")
     ax.axvline(t.mean(), color="black", linewidth=1, label=f"treated share {t.mean():.3f}")
-    ax.set_xlabel("estimated propensity on validation, e_hat(x)")
-    ax.set_ylabel("density")
-    ax.set_title(f"Can the features tell the arms apart? {threshold_note}", fontsize=10)
+    ax.set_yscale("log")
+    ax.set_xlabel("estimated propensity on validation, e_hat(x) (central 99.9 %)")
+    ax.set_ylabel("density (log scale)")
+    ax.set_title(f"Can the features tell the arms apart?\n{note}", fontsize=9)
     ax.legend()
     fig.tight_layout()
     path.parent.mkdir(parents=True, exist_ok=True)
