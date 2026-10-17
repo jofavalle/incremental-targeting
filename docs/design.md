@@ -563,6 +563,33 @@ not detectable at these sizes, that is the conclusion, reported with the
 calculation; on `visit` the same calculation is expected to be far more
 favourable, and is checked.
 
+### 8.3 Fixed before the run
+
+Fixed on 2026-10-17, while the ATE of section 6.5 was running and before it was
+seen. The values live in `PowerConfig`, in `config.py`.
+
+- **Level and power.** $\alpha = 0.05$, two-sided, and power $0.80$.
+- **Sample and rates.** The arm sizes of the test partition, from
+  `reports/split_summary.json` (its counts, never its outcomes). The control
+  rate and the primary ATE measured on train (`reports/ate.json`); the
+  partitions share them by construction (section 4.2). Every subgroup is
+  assumed to have the rates of the whole sample, a simplification declared here.
+- **Contrast.** A subgroup with a share $s$ of the sample against the rest. If
+  $V$ is the variance of the full-sample difference of means, the contrast has
+  variance $V / (s (1 - s))$, and its MDE is
+  $(z_{1-\alpha'/2} + z_{1-\beta}) \sqrt{V / (s (1 - s))}$. For $s = 1$ the
+  MDE is that of the ATE against zero (section 8.1).
+- **Multiplicity.** Bonferroni over the $m = 1/s$ subgroups of that size:
+  $\alpha' = \alpha / m$, so a decile is tested at 0.005 and a percentile at
+  0.0005.
+- **Benchmark.** An outcome supports heterogeneity at share $s$ if the MDE of
+  the contrast is at most the absolute value of its measured ATE: a subgroup
+  whose effect differs from the rest's by as much as the average effect itself
+  would be detected with power 0.80.
+- **Decision.** `visit` stays the primary outcome unless `conversion` supports
+  heterogeneity at the decile level ($s = 0.1$); then `conversion`, the business
+  metric, becomes primary. Both are reported either way.
+
 ## 9. Decision layer
 
 ### 9.1 Allocation
