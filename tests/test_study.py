@@ -59,9 +59,17 @@ def test_a_finished_study_resumes_without_refitting(tiny, monkeypatch):
 def test_replications_of_other_settings_are_not_reused(tiny):
     _, work = tiny
     other = replace(TINY, learners=replace(TINY.learners, n_estimators=16))
-    assert fingerprint(other) != fingerprint(TINY)
-    assert study._load(work, fingerprint(other)) == {}
-    assert len(study._load(work, fingerprint(TINY))) == 6
+    assert fingerprint(other, 1) != fingerprint(TINY, 1)
+    assert fingerprint(TINY, 2) != fingerprint(TINY, 1)  # the thread count matters too
+    assert study._load(work, fingerprint(other, 1)) == {}
+    assert len(study._load(work, fingerprint(TINY, 1))) == 6
+
+
+def test_a_truncated_last_line_is_skipped(tiny, tmp_path):
+    _, work = tiny
+    copy = tmp_path / "work.jsonl"
+    copy.write_text(work.read_text() + '{"scenario": "refer')
+    assert len(study._load(copy, fingerprint(TINY, 1))) == 6
 
 
 def test_the_summary_by_hand():

@@ -52,10 +52,17 @@ DEFAULT_WORK = DATA_PROCESSED / "simulation_replications.jsonl"
 LEARNER_NAMES = tuple(LEARNERS)
 
 
-def fingerprint(cfg) -> str:
-    """A short hash of every setting a replication depends on."""
+def fingerprint(cfg, threads: int) -> str:
+    """A short hash of everything a replication's numbers depend on.
+
+    The settings, the thread count (a LightGBM fit is reproducible only at a
+    fixed count) and the versions of the packages that compute it: a run resumed
+    with any of them changed starts afresh instead of mixing replications.
+    """
+    versions = run_metadata(packages=("numpy", "scipy", "lightgbm"))["packages"]
     settings = {k: asdict(getattr(cfg, k)) for k in ("simulation", "learners", "propensity")}
-    return hashlib.sha256(json.dumps(settings, sort_keys=True).encode()).hexdigest()[:16]
+    payload = {"settings": settings, "threads": threads, "packages": versions}
+    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:16]
 
 
 def intercepts(cfg) -> dict[tuple[str, float], float]:
@@ -148,10 +155,22 @@ def summarize(runs: list[dict]) -> dict:
 
 
 def _load(work: Path, tag: str) -> dict[tuple[str, int], dict]:
+    """The finished replications with this fingerprint.
+
+    A last line cut short by a crash mid-write is skipped with a warning: that
+    replication runs again.
+    """
     done = {}
     if work.exists():
-        for line in work.read_text().splitlines():
-            entry = json.loads(line)
+        lines = work.read_text().splitlines()
+        for number, line in enumerate(lines):
+            try:
+                entry = json.loads(line)
+            except json.JSONDecodeError:
+                if number == len(lines) - 1:
+                    print(f"  skipping a truncated last line of {work.name}", flush=True)
+                    continue
+                raise
             if entry.pop("fingerprint") == tag:
                 done[(entry["scenario"], entry["replication"])] = entry
     return done
@@ -160,7 +179,7 @@ def _load(work: Path, tag: str) -> dict[tuple[str, int], dict]:
 def run_study(cfg, threads: int, work: Path) -> dict:
     """Every replication of every configuration, resuming from `work`; returns the record."""
     started = time.perf_counter()
-    tag = fingerprint(cfg)
+    tag = fingerprint(cfg, threads)
     done = _load(work, tag)
     calibrated = intercepts(cfg)
     work.parent.mkdir(parents=True, exist_ok=True)
