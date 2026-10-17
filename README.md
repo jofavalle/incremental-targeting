@@ -168,6 +168,7 @@ make eda       # ties that float32 creates, and duplicated feature vectors
 make propensity  # balance and propensity check, before any effect: about 3 minutes
 make ate       # the ATE and its three sensitivity versions, with a cross-fitted propensity
 make power     # the power analysis, which decides the primary outcome
+make simulate  # the simulation study against known truth: hours, and it resumes if stopped
 make memory    # peak memory of each stage, with 2 threads
 ```
 
@@ -190,6 +191,8 @@ src/uplift/
 ├── propensity_check.py  # the balance and propensity check, run before any effect
 ├── ate.py            # the ATE with its three sensitivity versions
 ├── power_analysis.py # the power analysis, which decides the primary outcome
+├── learners/         # the S-, T-, X- and DR-learners, written by hand
+├── simulate/         # the generator with known truth, and the simulation study
 ├── data/             # streaming ingest (CSV.gz to Parquet), stratified split, folds and subsamples
 └── evaluate/         # evaluators: balance, propensity, effect estimators and power so far
 
