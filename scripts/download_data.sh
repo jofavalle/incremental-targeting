@@ -3,7 +3,7 @@
 # download_data.sh: fetch Criteo-UPLIFT v2.1 and verify it against its published
 # checksum.
 #
-# Usage: ./scripts/download_data.sh [RAW_DIR]     (default: data/raw)
+# Usage: ./scripts/download_data.sh [RAW_DIR]     (default: data/raw of the repository)
 #
 # Source. The link on the Criteo AI Lab page (go.criteo.net) redirects to an
 # Azure storage host that no longer resolves (checked 2026-10-16). The same file
@@ -25,7 +25,9 @@ REVISION="2424920019e49d52d72c13ac1143ec5d53af276b"
 URL="https://huggingface.co/datasets/criteo/criteo-uplift/resolve/${REVISION}/${FILE}"
 SHA256="2716e1bf0fd157a93b5bf86924d9088419dfbac2022c6cd90030220634f616dc"
 SIZE_BYTES=311422618
-RAW_DIR="${1:-data/raw}"
+# The default is anchored to the repository, not to the working directory, so
+# that it is the same data/raw the ingest reads (src/uplift/config.py).
+RAW_DIR="${1:-$(readlink -f "$(dirname "$(readlink -f "$0")")/..")/data/raw}"
 
 for cmd in curl sha256sum; do
   if ! command -v "${cmd}" >/dev/null 2>&1; then
