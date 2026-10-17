@@ -413,6 +413,25 @@ size $n$ (both fixed in `config.py` before running):
   replications, so differences between learners are compared pairwise, which
   removes the variation shared by the replication.
 
+**The study, fixed on 2026-10-17 before it ran.** The values live in
+`SimulationConfig`.
+
+- Each replication draws a training sample of `n` units, on which the four
+  learners are fitted, and an independent validation sample of
+  `n_validation` units from the same configuration. The PEHE is computed on the
+  validation sample: out of sample, like the transformed-outcome criterion it
+  is compared with.
+- On the same validation sample, the criterion of section 6.3 ranks the
+  learners. $Z$ uses the known treatment ratio in the randomized configurations
+  and the true $e(x)$ in the confounded one: the check is whether the criterion
+  ranks like the PEHE, not how well $e$ is estimated. The record keeps, for each
+  configuration, how often the criterion's winner is the PEHE's winner.
+- The X- and DR-learners are told the propensity is constant everywhere except
+  in the confounded configuration (section 5.5).
+- `n` = 100,000 and `R` = 40, from a measured cost of about 22 s per replication
+  of the four learners with 2 threads, timed without computing any error: eight
+  configurations take two to three hours.
+
 ### 6.3 The transformed outcome: selection on real data
 
 With a known, constant propensity $e$, define
