@@ -1,0 +1,41 @@
+{
+  "fractions": {
+    "test": 0.2,
+    "train": 0.6,
+    "val": 0.2
+  },
+  "partitions": {
+    "test": {
+      "rows": 2795918,
+      "treatment_share": 0.8499998927007159
+    },
+    "train": {
+      "rows": 8387756,
+      "treatment_share": 0.8500001669099578
+    },
+    "val": {
+      "rows": 2795918,
+      "treatment_share": 0.8500002503649964
+    }
+  },
+  "run": {
+    "arrow_cpu_threads": 6,
+    "cpu_count": 6,
+    "machine": "x86_64",
+    "memory_total_gib": 4.8,
+    "packages": {
+      "numpy": "2.4.6",
+      "pyarrow": "26.0.0"
+    },
+    "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.36",
+    "python": "3.11.2",
+    "seconds": 7.5
+  },
+  "seed": 20261016,
+  "source_file": "criteo_uplift.parquet",
+  "strata": [
+    "treatment",
+    "visit",
+    "conversion"
+  ]
+}
