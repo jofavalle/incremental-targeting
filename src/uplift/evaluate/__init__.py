@@ -1,1 +1,1 @@
-"""Evaluators: balance, propensity and, later, the ATE, the curves and calibration."""
+"""Evaluators: balance, propensity, the ATE and power; later the curves and calibration."""
