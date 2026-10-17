@@ -59,6 +59,25 @@ def test_the_check_tells_the_two_worlds_apart(tmp_path, propensity, decision):
     assert low <= record["auc_val"] <= high
     assert record["decision"] == decision
     assert e_hat.shape == t_val.shape == (10_000,)
+    for arm in ("treated", "control"):
+        q = list(record["e_hat_val"][arm].values())
+        assert 0 <= min(q) and max(q) <= 1  # probabilities, not logits
+    if decision == "weighted":
+        treated, control = record["e_hat_val"]["treated"], record["e_hat_val"]["control"]
+        assert treated["q0.5"] > control["q0.5"]  # the arms are not swapped
+        assert record["propensity_sd_linear_bound"] > 5 * record["propensity_sd_linear_noise"]
+
+
+@pytest.mark.parametrize(
+    "interval, decision", [((0.505, 0.52), "constant"), ((0.5105, 0.52), "weighted")]
+)
+def test_the_rule_reads_the_lower_bound_not_the_point(tmp_path, monkeypatch, interval, decision):
+    # The real result hinged on this: point 0.5102 above the threshold, lower bound below.
+    train, val = _world(tmp_path, constant)
+    monkeypatch.setattr("uplift.propensity_check.auc", lambda score, t: 0.515)
+    monkeypatch.setattr("uplift.propensity_check.bootstrap_auc_interval", lambda *a, **k: interval)
+    record, _, _ = run_check(train, val, SMALL, threads=1)
+    assert record["decision"] == decision
 
 
 def test_the_driver_writes_the_record_and_the_figure(tmp_path, monkeypatch):
@@ -76,7 +95,10 @@ def test_the_driver_writes_the_record_and_the_figure(tmp_path, monkeypatch):
         "auc_val",
         "auc_val_ci95",
         "auc_threshold",
-        "implied_propensity_sd",
+        "smd_noise_se",
+        "propensity_sd_linear_bound",
+        "propensity_sd_linear_noise",
+        "propensity_sd_if_normal",
         "decision",
         "e_hat_val",
         "classifier",

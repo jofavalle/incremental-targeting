@@ -41,8 +41,10 @@ from uplift.data.ingest import FEATURES
 from uplift.evaluate.balance import (
     auc,
     bootstrap_auc_interval,
-    implied_propensity_sd,
+    linear_propensity_sd_bound,
     propensity_is_constant,
+    propensity_sd_if_normal,
+    smd_noise_se,
     standardized_mean_differences,
 )
 from uplift.features import feature_matrix
@@ -92,6 +94,8 @@ def run_check(
 
     x_train, t_train = _load(train_path)
     smd = standardized_mean_differences(x_train, t_train)
+    sd_bound, sd_noise = linear_propensity_sd_bound(x_train, t_train)
+    n1_train = int(t_train.sum())
     params = _lightgbm_params(cfg, threads)
     booster = lgb.train(params, lgb.Dataset(x_train, label=t_train), cfg.n_estimators)
     train_rows, train_share = t_train.size, float(t_train.mean())
@@ -113,10 +117,16 @@ def run_check(
         "smd_train": dict(zip(FEATURES, smd.tolist())),
         "smd_flagged": [name for name, v in zip(FEATURES, smd) if abs(v) > cfg.smd_flag],
         "smd_flag": cfg.smd_flag,
+        "smd_noise_se": smd_noise_se(n1_train, train_rows - n1_train),
         "auc_val": auc_value,
         "auc_val_ci95": [low, high],
         "auc_threshold": cfg.auc_threshold,
-        "implied_propensity_sd": implied_propensity_sd(auc_value, float(t_val.mean())),
+        # The size of the spread: a bound from the mean differences on train, with
+        # its noise floor, and the normal-only translation of the AUC (which is
+        # neither an estimate nor a bound for a skewed propensity).
+        "propensity_sd_linear_bound": sd_bound,
+        "propensity_sd_linear_noise": sd_noise,
+        "propensity_sd_if_normal": propensity_sd_if_normal(auc_value, float(t_val.mean())),
         "decision": "constant" if constant else "weighted",
         "e_hat_val": {
             "treated": _quantiles(e_hat[treated]),
