@@ -1,6 +1,6 @@
-# make data | split | eda | propensity | ate | memory | test | lint | format
+# make data | split | eda | propensity | ate | power | memory | test | lint | format
 
-.PHONY: data split eda propensity ate memory test lint format
+.PHONY: data split eda propensity ate power memory test lint format
 
 data:            ## Download Criteo-UPLIFT (checksum verified) and stream it into Parquet
 	./scripts/download_data.sh
@@ -17,6 +17,9 @@ propensity:      ## Balance and propensity check, before any ATE (needs `make sp
 
 ate:             ## ATE on visit and conversion with its three sensitivity versions (needs `make split`)
 	uv run python -m uplift.ate
+
+power:           ## Power analysis on the test sizes and the measured ATE; decides the primary outcome (needs `make ate`)
+	uv run python -m uplift.power_analysis
 
 memory:          ## Peak memory of ingest, split and a full-train fit, 2 threads (needs `make data`)
 	uv run python scripts/peak_memory.py
