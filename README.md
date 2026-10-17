@@ -165,12 +165,14 @@ With the real data:
 make data      # 311 MB, checksum verified, streamed into Parquet: the CSV never hits the disk
 make split     # stratified train/validation/test, seed from config.py
 make propensity  # balance and propensity check, before any effect: about 3 minutes
+make ate       # the ATE and its three sensitivity versions, with a cross-fitted propensity
 make memory    # peak memory of each stage, with 2 threads
 ```
 
 `make data` writes `reports/data_summary.json`, `make split` writes
-`reports/split_summary.json` and `make propensity` writes
-`reports/propensity_check.json` with its figure. Every figure quoted in this
+`reports/split_summary.json`, `make propensity` writes
+`reports/propensity_check.json` and `make ate` writes `reports/ate.json`, each
+of the last two with its figure. Every figure quoted in this
 repository comes from one of those records, is derived from them by arithmetic,
 or is quoted from the source, which is named.
 
@@ -182,8 +184,9 @@ src/uplift/
 ├── features.py       # the feature matrix: f0 to f11, by name, never by exclusion
 ├── runinfo.py        # machine, versions and threads, recorded with every number
 ├── propensity_check.py  # the balance and propensity check, run before any effect
+├── ate.py            # the ATE with its three sensitivity versions
 ├── data/             # streaming ingest (CSV.gz to Parquet), stratified split, folds and subsamples
-└── evaluate/         # evaluators: balance and propensity so far
+└── evaluate/         # evaluators: balance, propensity and the effect estimators so far
 
 tests/                # including the exposure leakage guard; all on synthetic data
 scripts/              # checksum-verified download, peak memory probe
