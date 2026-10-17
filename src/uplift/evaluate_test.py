@@ -41,7 +41,7 @@ import pyarrow.parquet as pq
 
 from uplift.config import CONFIG, DATA_PROCESSED, REPORTS_DIR
 from uplift.data.ingest import FEATURES
-from uplift.evaluate.curves import RankedScore, area_over_random, break_even
+from uplift.evaluate.curves import RankedScore, area_over_random, break_even, net_value
 from uplift.evaluate.effect import paired_bootstrap, percentile_interval
 from uplift.features import feature_matrix
 from uplift.learners import base
@@ -66,6 +66,16 @@ def _interval(draws: np.ndarray, level: float) -> list[float]:
     return percentile_interval(draws.reshape(-1, 1), level)[:, 0].tolist()
 
 
+def fraction_grids(points: int, capacities: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """The AUUC axis 0, 1/(points-1), ..., 1, and its union with the capacities.
+
+    k / (points - 1) rather than linspace: linspace gives 0.7000000000000001,
+    which would sit next to the capacity 0.7 and make a segment of 1e-16.
+    """
+    phi = np.arange(points) / (points - 1)
+    return phi, np.unique(np.round(np.r_[phi, capacities], 12))
+
+
 def run_test(train_path: Path, test_path: Path, models_path: Path, cfg, threads: int):
     """Score everything on test once; returns the record and what the figures need."""
     started = time.perf_counter()
@@ -87,9 +97,9 @@ def run_test(train_path: Path, test_path: Path, models_path: Path, cfg, threads:
     score3 = propensity_model.predict(x)
     del x
     n = t.size
-    phi = np.linspace(0.0, 1.0, cfg.evaluation.curve_points)
+    points = cfg.evaluation.curve_points
     capacities = np.asarray(cfg.decision.capacities)
-    grid = np.union1d(phi, capacities)  # the money sweeps need both
+    phi, grid = fraction_grids(points, capacities)
     at_capacity = np.searchsorted(grid, capacities)
 
     ranked = {name: RankedScore(values, t, y[primary]) for name, values in tau_hat.items()}
@@ -100,56 +110,66 @@ def run_test(train_path: Path, test_path: Path, models_path: Path, cfg, threads:
     names = list(ranked)
 
     def statistic(counts):
-        areas = []
+        values = []
         for name in names:
             u, q = ranked[name].curves(phi, counts)
-            areas += [
-                area_over_random(u, phi, counts.sum()),
-                area_over_random(q, phi, counts.sum()),
-            ]
-        values = []
+            m = counts.sum()
+            values += [area_over_random(u, phi, m), area_over_random(q, phi, m), *u, *q]
         for policy in ("propensity", "uplift"):
-            u, _ = decision[policy].curves(grid, counts)
-            values += list(u[at_capacity])
-        return areas + values + [u[-1]]  # U(N) on conversions: the random policy's slope
+            values += list(decision[policy].curves(grid, counts)[0])
+        return values
 
     rng = np.random.default_rng(cfg.evaluation.bootstrap_seed)
     draws = paired_bootstrap(statistic, n, cfg.evaluation.n_bootstrap, rng)
     level = cfg.effect.level
-    k = len(capacities)
+    width = 2 + 2 * points
 
     curves = {}
     point = {}
     for i, name in enumerate(names):
         u, q = ranked[name].curves(phi)
         point[name] = u
+        column = i * width
         curves[name] = {
             "auuc": area_over_random(u, phi, n),
-            "auuc_ci": _interval(draws[:, 2 * i], level),
+            "auuc_ci": _interval(draws[:, column], level),
             "qini": area_over_random(q, phi, n),
-            "qini_ci": _interval(draws[:, 2 * i + 1], level),
+            "qini_ci": _interval(draws[:, column + 1], level),
             "uplift_curve": u.tolist(),
+            "uplift_band": percentile_interval(
+                draws[:, column + 2 : column + 2 + points], level
+            ).tolist(),
+            "qini_curve": q.tolist(),
+            "qini_band": percentile_interval(
+                draws[:, column + 2 + points : column + width], level
+            ).tolist(),
         }
+    j = names.index(chosen)
     for i, name in enumerate(names):
         if name != chosen:
-            j = names.index(chosen)
             curves[name]["auuc_minus_chosen"] = curves[name]["auuc"] - curves[chosen]["auuc"]
             curves[name]["auuc_minus_chosen_ci"] = _interval(
-                draws[:, 2 * i] - draws[:, 2 * j], level
+                draws[:, i * width] - draws[:, j * width], level
             )
 
-    offset = 2 * len(names)
+    offset = len(names) * width
+    g = grid.size
+    draws3, draws4 = draws[:, offset : offset + g], draws[:, offset + g : offset + 2 * g]
     u3, _ = decision["propensity"].curves(grid)
     u4, _ = decision["uplift"].curves(grid)
     ate_total = u4[-1]  # U(N): the same for any ranking
     policy_values = {
-        "nobody": np.zeros(k),
+        "nobody": np.zeros(capacities.size),
         "random": capacities * ate_total,
         "propensity": u3[at_capacity],
         "uplift": u4[at_capacity],
     }
+    policy_draws = {
+        "random": capacities * draws4[:, -1:],
+        "propensity": draws3[:, at_capacity],
+        "uplift": draws4[:, at_capacity],
+    }
     per_contact = 1000 / (capacities * n * cfg.decision.contact_cost)
-    difference = draws[:, offset + k : offset + 2 * k] - draws[:, offset : offset + k]
     policies = {
         policy: {
             "incremental": values.tolist(),
@@ -157,29 +177,37 @@ def run_test(train_path: Path, test_path: Path, models_path: Path, cfg, threads:
         }
         for policy, values in policy_values.items()
     }
-    for j, policy in enumerate(("propensity", "uplift")):
-        block = draws[:, offset + j * k : offset + (j + 1) * k]
+    for policy, block in policy_draws.items():
         policies[policy]["incremental_ci"] = percentile_interval(block, level).T.tolist()
     policies["uplift_minus_propensity"] = {
         "incremental": (policy_values["uplift"] - policy_values["propensity"]).tolist(),
-        "incremental_ci": percentile_interval(difference, level).T.tolist(),
+        "incremental_ci": percentile_interval(
+            policy_draws["uplift"] - policy_draws["propensity"], level
+        ).T.tolist(),
     }
 
     money = []
     for value in cfg.decision.conversion_values:
         for cost in cfg.decision.contact_costs:
             row = {"conversion_value": value, "contact_cost": cost}
-            for policy, u in (("propensity", u3), ("uplift", u4)):
-                net = value * u - cost * grid * n
+            best_draws = {}
+            for policy, u, u_draws in (("propensity", u3, draws3), ("uplift", u4, draws4)):
+                net = net_value(u, grid, n, value, cost)
+                net_draws = value * u_draws - cost * grid * n
+                best_draws[policy] = net_draws.max(axis=1) * 1000 / n
                 best = int(np.argmax(net))
                 row[policy] = {
-                    "best_capacity": float(grid[best]),
-                    "best_net_value_per_1000_units": float(1000 * net[best] / n),
                     "break_even_capacity": break_even(u, grid, n, cost / value),
+                    "break_even_capacity_ci": _interval(grid[np.argmax(net_draws, axis=1)], level),
+                    "best_net_value_per_1000_units": float(1000 * net[best] / n),
+                    "best_net_value_per_1000_units_ci": _interval(best_draws[policy], level),
                 }
             row["uplift_minus_propensity_per_1000_units"] = (
                 row["uplift"]["best_net_value_per_1000_units"]
                 - row["propensity"]["best_net_value_per_1000_units"]
+            )
+            row["uplift_minus_propensity_per_1000_units_ci"] = _interval(
+                best_draws["uplift"] - best_draws["propensity"], level
             )
             money.append(row)
 
@@ -197,6 +225,10 @@ def run_test(train_path: Path, test_path: Path, models_path: Path, cfg, threads:
         "capacities": capacities.tolist(),
         "policies": policies,
         "money": money,
+        "money_note": (
+            "each policy at the best capacity of its own test curve, which flatters both; "
+            "the whole grid of K is in 'policies'"
+        ),
         "n_bootstrap": cfg.evaluation.n_bootstrap,
         "seed": cfg.evaluation.bootstrap_seed,
         "level": level,
@@ -224,7 +256,11 @@ def plot_figures(record: dict, figures: Path) -> None:
     for name, curve in record["curves"].items():
         tag = " (chosen)" if name == record["chosen_learner"] else ""
         ax.plot(phi, curve["uplift_curve"], label=f"{name}-learner{tag}, AUUC {curve['auuc']:.5f}")
-    end = record["curves"][record["chosen_learner"]]["uplift_curve"][-1]
+    chosen = record["curves"][record["chosen_learner"]]
+    low, high = chosen["uplift_band"]
+    level = round(100 * record["level"])
+    ax.fill_between(phi, low, high, alpha=0.2, label=f"chosen, {level} % bootstrap band")
+    end = chosen["uplift_curve"][-1]
     ax.plot([0, 1], [0, end], color="black", linestyle="--", linewidth=1, label="random")
     ax.set_xlabel("fraction of the test partition contacted, by tau_hat")
     ax.set_ylabel(f"incremental {record['primary_outcome']}s, U(n)")

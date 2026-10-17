@@ -79,6 +79,28 @@ def test_break_even_is_where_the_slope_falls_below_cost_over_value():
     assert break_even(curve, PHI, n, cost_over_value=0.05) == 0.0
 
 
+def test_break_even_survives_the_noise_of_a_real_test_partition():
+    # The test partition's size, a base rate of 0.25 % and an effect falling
+    # linearly from 0.003 to -0.0005 along the oracle ranking: at a value of 1000
+    # contact costs the true break-even is where tau = 0.001, at 4/7. The first
+    # crossing of the measured slope, the first draft, misses it.
+    n, truth = 2_795_918, (0.003 - 0.001) / 0.0035
+    estimates, first_crossings = [], []
+    for seed in range(3):
+        rng = np.random.default_rng(seed)
+        rank = rng.random(n)
+        tau = 0.003 - 0.0035 * rank
+        t = (rng.random(n) < 0.85).astype(np.int8)
+        y = (rng.random(n) < 0.0025 + tau * t).astype(np.int8)
+        u, _ = RankedScore(tau, t, y).curves(PHI)
+        estimates.append(break_even(u, PHI, n, 0.001))
+        slopes = np.diff(u) / (np.diff(PHI) * n)
+        below = np.flatnonzero(slopes <= 0.001)
+        first_crossings.append(PHI[below[0]] if below.size else 1.0)
+    assert all(abs(e - truth) < 0.15 for e in estimates)
+    assert any(abs(f - truth) > 0.15 for f in first_crossings)
+
+
 def test_the_area_needs_the_whole_axis():
     with pytest.raises(ValueError, match="from 0 to 1"):
         area_over_random(np.zeros(3), np.array([0.0, 0.5, 0.9]), 10)

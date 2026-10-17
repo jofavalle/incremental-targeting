@@ -13,7 +13,8 @@ import pytest
 
 from uplift.config import CONFIG
 from uplift.data.ingest import FEATURES
-from uplift.evaluate_test import POLICIES, main, run_test
+from uplift.evaluate.curves import RankedScore, area_over_random
+from uplift.evaluate_test import POLICIES, fraction_grids, main, run_test
 from uplift.select_learner import fit_learners
 from uplift.simulate.dgp import baseline_logit, calibrate_intercept, calibration_sample, generate
 
@@ -38,6 +39,8 @@ def _world(tmp_path):
         pq.write_table(pa.table(columns), paths[name])
         if name == "train":
             learners = fit_learners(data.x, data.t, data.y, SMALL, threads=1)
+        else:
+            paths["tau_true"], paths["t"], paths["y"] = data.tau_true, data.t, data.y
     paths["models"] = tmp_path / "learners.pkl"
     with paths["models"].open("wb") as handle:
         pickle.dump({"outcome": "visit", "chosen": "T", "learners": learners}, handle)
@@ -60,6 +63,32 @@ def test_the_curves_rank_above_random(evaluated):
         assert curve["auuc"] > 0
     assert "auuc_minus_chosen" not in record["curves"]["T"]
     assert "auuc_minus_chosen_ci" in record["curves"]["S"]
+
+
+def test_the_grid_has_no_near_duplicates():
+    phi, grid = fraction_grids(101, np.asarray(CONFIG.decision.capacities))
+    assert phi[70] == 0.7 and np.diff(grid).min() > 1e-6
+    assert set(CONFIG.decision.capacities) <= set(grid.tolist())
+
+
+def test_every_curve_has_its_bootstrap_band(evaluated):
+    record, _ = evaluated
+    for curve in record["curves"].values():
+        for key in ("uplift", "qini"):
+            low, high = np.asarray(curve[f"{key}_band"])
+            values = np.asarray(curve[f"{key}_curve"])
+            assert low.shape == high.shape == values.shape == (101,)
+            assert (low <= high).all()
+            assert ((low <= values) & (values <= high)).mean() > 0.9
+
+
+def test_the_oracle_is_not_below_any_learner(evaluated):
+    # §7.1: ranking by the true effect itself does at least as well as any learner.
+    record, paths = evaluated
+    phi = np.asarray(record["phi"])
+    u, _ = RankedScore(paths["tau_true"], paths["t"], paths["y"]).curves(phi)
+    oracle = area_over_random(u, phi, paths["t"].size)
+    assert all(oracle >= curve["auuc"] for curve in record["curves"].values())
 
 
 def test_the_policies_follow_section_9(evaluated):
@@ -86,6 +115,9 @@ def test_the_money_sweep_covers_the_declared_grid(evaluated):
     for row in record["money"]:
         for policy in ("propensity", "uplift"):
             assert 0.0 <= row[policy]["break_even_capacity"] <= 1.0
+            low, high = row[policy]["best_net_value_per_1000_units_ci"]
+            assert low <= high
+        assert len(row["uplift_minus_propensity_per_1000_units_ci"]) == 2
 
 
 def test_the_driver_writes_the_record_and_three_figures(evaluated, tmp_path, monkeypatch):

@@ -66,13 +66,18 @@ def area_over_random(curve: np.ndarray, phi: np.ndarray, n: float) -> float:
     return float(np.sum((gap[1:] + gap[:-1]) / 2 * np.diff(phi)) / n)
 
 
-def break_even(curve: np.ndarray, phi: np.ndarray, n: float, cost_over_value: float) -> float:
-    """The first fraction at which one more contact returns less than it costs.
+def net_value(curve: np.ndarray, phi: np.ndarray, n: float, value: float, cost: float):
+    """value * U(K) - cost * K at each fraction of the grid, K = phi * N."""
+    return value * np.asarray(curve) - cost * np.asarray(phi) * n
 
-    The marginal incremental outcome per contact is the slope of U between grid
-    points; contacting pays while slope * value > cost. Returns 0 if the first
-    contacts already do not pay, and 1 if every contact does.
+
+def break_even(curve: np.ndarray, phi: np.ndarray, n: float, cost_over_value: float) -> float:
+    """The fraction of the grid with the largest net value (§9.5, as amended).
+
+    On a smooth concave curve that is where the slope of U crosses cost / value:
+    one more contact returns its cost. The first grid point where the measured
+    slope falls below cost / value is not used, because over 1 % of a test
+    partition the slope's noise is of the order of cost / value itself, and the
+    first crossing is the first dip of the noise.
     """
-    slopes = np.diff(curve) / (np.diff(phi) * n)
-    below = np.flatnonzero(slopes <= cost_over_value)
-    return float(phi[below[0]]) if below.size else 1.0
+    return float(np.asarray(phi)[np.argmax(net_value(curve, phi, n, 1.0, cost_over_value))])
