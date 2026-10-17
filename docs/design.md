@@ -452,6 +452,35 @@ which never replace it:
 A discrepancy between the primary estimate and these versions is a finding,
 reported with its size; it does not switch the branch after the fact.
 
+**Fixed on 2026-10-16, before any effect.** The details the three versions
+leave open are settled here; their values live in `EffectConfig`, in
+`config.py`.
+
+- **Cross-fitting.** Train is cut into `n_folds` folds by a seeded permutation
+  (section 3.4), stratified by the treatment, the only variable whose share per
+  fold matters to a model of $T$. The classifier and the clip are those of the
+  propensity check (`PropensityConfig`). A train unit gets the $\hat e$ of the
+  model that did not see it; a validation unit gets the mean of the `n_folds`
+  models, all of them out of sample for it.
+- **Strata of $\hat e$.** The cuts are the quantiles `stratum_quantiles` (the
+  nine deciles and 0.99) of $\hat e$ in the evaluated partition, both arms
+  pooled: eleven strata. A unit's stratum is the number of cuts strictly below
+  its $\hat e$, so ties are never split. The $\hat e$ of a boosted model is a
+  step function, so the strata come out unequal, and their sizes are recorded.
+  An empty stratum is dropped; a stratum missing an arm is merged with the one
+  below it (the lowest, with the one above). The weights are the shares of
+  units, so the estimand stays the ATE.
+- **Blocks.** The run boundaries are the run lengths recorded in
+  `reports/data_summary.json`, accumulated along `row_id`.
+- **Intervals.** The primary estimate keeps the normal interval of section 2.3.
+  One paired bootstrap serves the three versions: `n_bootstrap` resamples of
+  the units of the partition, with $\hat e$, strata and blocks held fixed, give
+  percentile intervals at level `level` for each version and for its difference
+  from the primary estimate. It measures the sampling noise given $\hat e$, not
+  the noise of estimating $\hat e$. The difference is what tells a discrepancy
+  from noise, so the subclassified and block versions get it too, not only the
+  weighted one.
+
 ## 7. Evaluation
 
 ### 7.1 Uplift and Qini curves: definitions, fixed before evaluation
