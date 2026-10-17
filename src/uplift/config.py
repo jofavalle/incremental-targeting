@@ -7,9 +7,8 @@ Each value is committed before any result that depends on it, so the history
 shows that it was fixed first (docs/design.md §1): an assumption is never bent
 after seeing the results. This version fixes the paths, the split, the
 propensity check, the settings of the effect estimates, the power analysis, the
-simulation grid and the learners' setting. The simulation's `n` and `R`, the
-costs and the grid of budgets `K` arrive with their milestones, each one before
-its evaluation.
+simulation study, the learners' setting, the selection on validation, the
+evaluation on test and the decision layer with its costs and budgets.
 """
 
 from __future__ import annotations
@@ -310,6 +309,59 @@ class LearnerConfig:
 
 
 # --------------------------------------------------------------------------
+# Selection, evaluation and the decision layer
+# --------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class SelectionConfig:
+    """The learner chosen on validation by the transformed-outcome criterion (§6.3).
+
+    Fixed on 2026-10-17, before the ATE was seen. The smallest criterion wins;
+    the paired bootstrap says whether anything separates it from the others.
+    """
+
+    n_bootstrap: int = 1_000
+    bootstrap_seed: int = 202610175
+
+
+@dataclass(frozen=True)
+class EvaluationConfig:
+    """The uplift and Qini curves on the test partition, opened once (§7).
+
+    Fixed on 2026-10-17, before the ATE was seen.
+    """
+
+    #: The fraction axis of the AUUC: 0, 0.01, ..., 1 (§7.1).
+    curve_points: int = 101
+
+    #: Resamples of the test units for the bands and the paired differences.
+    n_bootstrap: int = 1_000
+    bootstrap_seed: int = 202610176
+
+
+@dataclass(frozen=True)
+class DecisionConfig:
+    """The four policies and the budget-return curve (§9).
+
+    Fixed on 2026-10-17, before the ATE was seen. The cost of a contact is the
+    unit of money, so the value of a conversion reads in contact costs.
+    """
+
+    #: The outcome every policy is scored on: the business metric (§9.5).
+    counted_outcome: str = "conversion"
+
+    #: Capacities K as shares of the test partition: the whole grid is reported.
+    capacities: tuple[float, ...] = (0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.3, 0.5, 0.7, 1.0)
+
+    #: The centre of the money assumptions, and their sweeps for the tornado.
+    contact_cost: float = 1.0
+    conversion_value: float = 1_000.0
+    contact_costs: tuple[float, ...] = (0.5, 1.0, 2.0)
+    conversion_values: tuple[float, ...] = (250.0, 500.0, 1_000.0, 2_000.0, 4_000.0)
+
+
+# --------------------------------------------------------------------------
 # Everything together
 # --------------------------------------------------------------------------
 
@@ -324,6 +376,9 @@ class Config:
     power: PowerConfig = field(default_factory=PowerConfig)
     simulation: SimulationConfig = field(default_factory=SimulationConfig)
     learners: LearnerConfig = field(default_factory=LearnerConfig)
+    selection: SelectionConfig = field(default_factory=SelectionConfig)
+    evaluation: EvaluationConfig = field(default_factory=EvaluationConfig)
+    decision: DecisionConfig = field(default_factory=DecisionConfig)
 
 
 CONFIG = Config()
