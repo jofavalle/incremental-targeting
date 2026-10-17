@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from types import SimpleNamespace
 
@@ -159,6 +160,17 @@ def test_refuses_to_write_an_empty_partition(tmp_path):
 def test_the_real_config_is_a_valid_split():
     labels = assign_partitions(_strata(10_000), CONFIG.split.fractions, CONFIG.split.seed)
     assert set(np.unique(labels)) == {0, 1, 2}
+
+
+def test_the_partition_drawn_by_the_seed_is_pinned():
+    # The other machines rebuild the partition with `make split` instead of
+    # copying it, so the labels for a given input and seed are a contract. A
+    # refactor that consumes the generator differently, or a NumPy in uv.lock
+    # whose streams moved, would hand them another partition without an error.
+    # The digest was taken from the code that wrote data/processed/ on 2026-10-16.
+    labels = assign_partitions(_strata(10_000), CONFIG.split.fractions, CONFIG.split.seed)
+    digest = hashlib.sha256(labels.tobytes()).hexdigest()
+    assert digest == "bef23ee3ce1a435b38de1087263286157dbebd01a33d804b817bdaa7be9c5828"
 
 
 def test_a_config_without_a_seed_is_refused(tmp_path, ingested_parquet):
