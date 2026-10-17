@@ -18,6 +18,28 @@ Reproducibility: the same input, seed and fractions give the same partition
 under the locked NumPy. NumPy does not promise that Generator streams are stable
 across releases, which is one more reason uv.lock is part of the contract.
 
+## Folds and subsamples
+
+The source file is sorted by treatment in thirteen runs, and the partitions keep
+that order, so any contiguous slice of them comes from one arm (§3.4). Folds for
+cross-fitting (§5.4, §6.5), subsamples and early-stopping sets are drawn here,
+with the same stratified shuffle as the partition:
+
+- `assign_folds` deals the shuffled rows of each stratum in turn, like cards, so
+  the fold sizes differ by at most one row, overall and within every stratum.
+- `draw_subsample` takes the same fraction of every stratum and returns the rows
+  in random order, so that even a prefix of it is a random draw.
+
+This closes the gap by offering a tested way, not by forbidding a slice: nothing
+stops `x[:n]` elsewhere, and a static guard against it would be brittle. The
+number of folds, the fraction and the seed have no defaults here; they belong in
+config.py, fixed before the result that uses them.
+
+Draws that must be independent need distinct seeds. All three functions shuffle
+the strata the same way, so on the same columns one seed couples them:
+`draw_subsample` with fraction 0.6 returns the train rows of `assign_partitions`,
+and two subsamples of different fractions come out nested.
+
 ## Coupling with config.py
 
 `config.py`, the single source for the seed and the fractions, defines
@@ -126,6 +148,62 @@ def assign_partitions(
     if (labels < 0).any():
         raise RuntimeError("Rows were left without a partition.")
     return labels
+
+
+def assign_folds(columns: Sequence[np.ndarray], n_folds: int, seed: int) -> np.ndarray:
+    """Label each row with a fold in 0..n_folds-1, stratified by the binary `columns`.
+
+    Each stratum is shuffled and its rows are dealt to the folds in turn, the turn
+    carrying over from one stratum to the next. The balance is exact, not in
+    expectation: fold sizes differ by at most one row, overall and within every
+    stratum. Fold k is held out with `labels == k` and fitted on `labels != k`.
+    """
+    seed = _check_seed(seed)
+    if isinstance(n_folds, bool) or not isinstance(n_folds, (int, np.integer)):
+        raise ValueError(f"The number of folds must be an integer, got {n_folds!r}.")
+    if not 2 <= n_folds <= np.iinfo(np.int8).max:
+        raise ValueError(f"The number of folds must be between 2 and 127, got {n_folds}.")
+    code = _stratum_codes(columns)
+    if code.size < n_folds:
+        raise ValueError(f"A fold would be empty: {code.size} rows for {n_folds} folds.")
+
+    labels = np.full(code.size, -1, dtype=np.int8)
+    rng = np.random.default_rng(seed)
+    start = 0
+    for rows in _shuffled_strata(code, 2 ** len(columns), rng):
+        labels[rows] = (start + np.arange(rows.size)) % n_folds
+        start += rows.size
+    if (labels < 0).any():
+        raise RuntimeError("Rows were left without a fold.")
+    return labels
+
+
+def draw_subsample(columns: Sequence[np.ndarray], fraction: float, seed: int) -> np.ndarray:
+    """Indices of a random subsample, stratified by the binary `columns`, in random order.
+
+    Each stratum of n rows contributes round(fraction * n) of them, so the share of
+    every stratum holds up to one row. The indices are shuffled across strata, not
+    sorted: sorted, they would follow the source order, and a prefix of them would
+    again be a block of one arm.
+    """
+    seed = _check_seed(seed)
+    if isinstance(fraction, bool) or not isinstance(
+        fraction, (int, float, np.integer, np.floating)
+    ):
+        raise ValueError(f"The fraction must be a number, got {fraction!r}.")
+    fraction = float(fraction)
+    if not 0.0 < fraction <= 1.0:
+        raise ValueError(f"The fraction must be in (0, 1], got {fraction}.")
+    code = _stratum_codes(columns)
+
+    rng = np.random.default_rng(seed)
+    strata = _shuffled_strata(code, 2 ** len(columns), rng)
+    picked = [rows[: round(fraction * rows.size)] for rows in strata]
+    subsample = np.concatenate(picked) if picked else np.empty(0, dtype=np.intp)
+    if subsample.size == 0:
+        raise ValueError(f"The subsample would be empty: fraction {fraction} of {code.size} rows.")
+    rng.shuffle(subsample)
+    return subsample
 
 
 def split(src: Path, out_dir: Path, cfg) -> dict:

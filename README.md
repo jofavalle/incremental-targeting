@@ -181,7 +181,7 @@ src/uplift/
 ├── features.py       # the feature matrix: f0 to f11, by name, never by exclusion
 ├── runinfo.py        # machine, versions and threads, recorded with every number
 ├── propensity_check.py  # the balance and propensity check, run before any effect
-├── data/             # streaming ingest (CSV.gz to Parquet), stratified split
+├── data/             # streaming ingest (CSV.gz to Parquet), stratified split, folds and subsamples
 └── evaluate/         # evaluators: balance and propensity so far
 
 tests/                # including the exposure leakage guard; all on synthetic data
