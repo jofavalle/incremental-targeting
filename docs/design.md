@@ -415,6 +415,43 @@ a finding.
    section 2.3) against the mean prediction, each with its interval. The
    diagonal is the ideal.
 
+### 6.5 Sensitivity to the propensity, declared after the check
+
+Declared on 2026-10-16, after the check of section 6.4 ran and before any effect
+was estimated.
+
+The check passed at the margin of its rule. The validation AUC was 0.5102 and
+its lower bound 0.5093, under the threshold of 0.51, so the primary analysis
+keeps a constant propensity, as the rule decided. But the arms differ, by a small
+and measurable amount (`reports/propensity_check.json`): the mean differences
+bound the spread of the true propensity from below at 0.0068, sixteen times the
+noise floor of that bound, and more than the 0.0045 the threshold was translated
+into when it was fixed. That translation assumed a normal spread, and the
+estimated propensity is skewed, with a tail of users assigned to the treatment
+more often.
+
+So every effect estimate is reported together with three sensitivity versions,
+which never replace it:
+
+1. **Weighted**: the Hájek form of section 2.3, with $\hat e$ cross-fitted on
+   train (folds drawn by a seeded permutation, section 3.4) and clipped at the
+   bound fixed in `config.py`, and the paired bootstrap interval of its
+   difference from the primary estimate.
+2. **Subclassified**: the difference of means within strata of $\hat e$ (its
+   deciles, with the top 1 % as a stratum of its own), averaged with the weights
+   of the strata.
+3. **By blocks of the source file**, conditional on the unconfirmed reading that
+   each pair of runs is one of the assembled tests: six blocks, each treated run
+   with the control run that follows it, and the last treated run, which has no
+   control after it, joined to the sixth. The difference of means within each
+   block, averaged with the block weights. It is the only version that reaches
+   the case no check on the features can see (section 2.3), and it is labelled
+   with its condition wherever it appears. `row_id` defines the blocks here as a
+   stratifier of an estimator, never as a feature of a model (section 3.3).
+
+A discrepancy between the primary estimate and these versions is a finding,
+reported with its size; it does not switch the branch after the fact.
+
 ## 7. Evaluation
 
 ### 7.1 Uplift and Qini curves: definitions, fixed before evaluation
