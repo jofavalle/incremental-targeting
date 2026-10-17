@@ -5,6 +5,7 @@ description = "Budget-constrained targeting by incremental effect on the Criteo-
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "lightgbm>=4.7.0",
     "numpy>=2.4.6",
     "pyarrow>=26.0.0",
 ]
