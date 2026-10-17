@@ -59,3 +59,19 @@ def test_the_simulation_seeds_differ_from_every_other_draw():
         SIMULATION.replication_seed,
     ]
     assert len(set(seeds)) == len(seeds)
+
+
+def test_the_learner_setting_is_the_declared_one_and_its_seeds_are_its_own():
+    learners = CONFIG.learners
+    assert (learners.n_estimators, learners.learning_rate, learners.num_leaves) == (200, 0.05, 31)
+    assert learners.min_child_samples == 500 and learners.n_folds == 5
+    seeds = [
+        CONFIG.split.seed,
+        CONFIG.effect.fold_seed,
+        CONFIG.effect.bootstrap_seed,
+        SIMULATION.calibration_seed,
+        SIMULATION.replication_seed,
+        learners.fold_seed,
+        learners.random_state,
+    ]
+    assert len(set(seeds)) == len(seeds)

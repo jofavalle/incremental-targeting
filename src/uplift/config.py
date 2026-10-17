@@ -6,8 +6,8 @@ the codebase.
 Each value is committed before any result that depends on it, so the history
 shows that it was fixed first (docs/design.md §1): an assumption is never bent
 after seeing the results. This version fixes the paths, the split, the
-propensity check, the settings of the effect estimates, the power analysis and
-the simulation grid. The simulation's `n` and `R`, the learners' settings, the
+propensity check, the settings of the effect estimates, the power analysis, the
+simulation grid and the learners' setting. The simulation's `n` and `R`, the
 costs and the grid of budgets `K` arrive with their milestones, each one before
 its evaluation.
 """
@@ -265,6 +265,38 @@ class SimulationConfig:
 
 
 # --------------------------------------------------------------------------
+# Learners
+# --------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class LearnerConfig:
+    """The base learner shared by the S-, T-, X- and DR-learners (docs/design.md §5).
+
+    Fixed on 2026-10-17, before any learner was evaluated, and the same for the
+    four, so the comparison is between meta-learners and not between base models.
+    Fixed rounds and no early stopping (§5.5).
+    """
+
+    n_estimators: int = 200
+    learning_rate: float = 0.05
+    num_leaves: int = 31
+
+    #: Rows a leaf needs. At a rate of 0.3 %, a leaf of a few hundred rows holds
+    #: about one positive; smaller leaves would fit noise.
+    min_child_samples: int = 500
+
+    #: Cross-fitting of the DR-learner's nuisance models, folds by `assign_folds`
+    #: stratified by the treatment, with a seed of their own.
+    n_folds: int = 5
+    fold_seed: int = 202610173
+
+    #: The seed of every LightGBM fit, which with `deterministic` and a fixed
+    #: thread count makes a fit reproducible.
+    random_state: int = 202610174
+
+
+# --------------------------------------------------------------------------
 # Everything together
 # --------------------------------------------------------------------------
 
@@ -278,6 +310,7 @@ class Config:
     effect: EffectConfig = field(default_factory=EffectConfig)
     power: PowerConfig = field(default_factory=PowerConfig)
     simulation: SimulationConfig = field(default_factory=SimulationConfig)
+    learners: LearnerConfig = field(default_factory=LearnerConfig)
 
 
 CONFIG = Config()
