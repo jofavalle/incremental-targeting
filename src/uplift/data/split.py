@@ -57,6 +57,13 @@ def _check_fractions(fractions: Sequence[float]) -> tuple[float, float, float]:
     return values  # type: ignore[return-value]
 
 
+def _check_seed(seed: object) -> int:
+    # None would draw a fresh partition on every run, and record "seed": null.
+    if isinstance(seed, bool) or not isinstance(seed, (int, np.integer)):
+        raise ValueError(f"the seed must be an integer, got {seed!r}")
+    return int(seed)
+
+
 def assign_partitions(
     columns: Sequence[np.ndarray], fractions: Sequence[float], seed: int
 ) -> np.ndarray:
@@ -68,6 +75,7 @@ def assign_partitions(
     labels depend only on the column values, the fractions and the seed.
     """
     fractions = _check_fractions(fractions)
+    seed = _check_seed(seed)
     n_rows = len(columns[0])
     code = np.zeros(n_rows, dtype=np.uint8)
     for column in columns:
@@ -77,7 +85,7 @@ def assign_partitions(
             raise ValueError("stratification columns must be binary")
         code = code * 2 + column.astype(np.uint8)
 
-    labels = np.empty(n_rows, dtype=np.int8)
+    labels = np.full(n_rows, -1, dtype=np.int8)
     rng = np.random.default_rng(seed)
     for stratum in range(2 ** len(columns)):
         rows = np.flatnonzero(code == stratum)
@@ -89,6 +97,8 @@ def assign_partitions(
         labels[rows[:n_train]] = 0
         labels[rows[n_train : n_train + n_val]] = 1
         labels[rows[n_train + n_val :]] = 2
+    if (labels < 0).any():
+        raise RuntimeError("rows left without a partition")
     return labels
 
 
@@ -106,6 +116,9 @@ def split(src: Path, out_dir: Path, *, fractions: Sequence[float], seed: int) ->
     treatment = strata.column("treatment").to_numpy()
     labels = assign_partitions([strata.column(name).to_numpy() for name in STRATA], fractions, seed)
     del strata
+    sizes = np.bincount(labels, minlength=len(PARTITIONS))
+    if (sizes == 0).any():
+        raise ValueError(f"a partition would be empty: sizes {dict(zip(PARTITIONS, sizes))}")
 
     out_dir.mkdir(parents=True, exist_ok=True)
     finals = [out_dir / f"{name}.parquet" for name in PARTITIONS]
@@ -132,7 +145,6 @@ def split(src: Path, out_dir: Path, *, fractions: Sequence[float], seed: int) ->
     for tmp, final in zip(tmps, finals):
         tmp.replace(final)
 
-    sizes = np.bincount(labels, minlength=len(PARTITIONS))
     treated = np.bincount(labels, weights=treatment, minlength=len(PARTITIONS))
     return {
         "source_file": src.name,

@@ -6,7 +6,9 @@ import numpy as np
 import pyarrow.parquet as pq
 import pytest
 
-from uplift.data.ingest import ROW_ID, ingest
+from conftest import format_rows, make_columns, write_csv_gz
+
+from uplift.data.ingest import ROW_ID, SOURCE_COLUMNS, ingest
 from uplift.data.split import PARTITIONS, STRATA, assign_partitions, split
 
 FRACTIONS = (0.6, 0.2, 0.2)
@@ -46,6 +48,7 @@ def test_every_stratum_is_cut_at_the_fractions():
 def test_labels_cover_every_row_once():
     labels = assign_partitions(_strata(10_000), FRACTIONS, seed=0)
     assert labels.dtype == np.int8
+    assert (labels >= 0).all()
     assert set(np.unique(labels)) == {0, 1, 2}
 
 
@@ -60,6 +63,12 @@ def test_same_seed_same_partition_other_seed_other_partition():
 def test_rejects_invalid_fractions(fractions):
     with pytest.raises(ValueError, match="fraction"):
         assign_partitions(_strata(100), fractions, seed=0)
+
+
+@pytest.mark.parametrize("seed", [None, 1.5, True, "7"])
+def test_rejects_a_seed_that_is_not_an_integer(seed):
+    with pytest.raises(ValueError, match="seed"):
+        assign_partitions(_strata(100), FRACTIONS, seed=seed)
 
 
 def test_rejects_non_binary_strata():
@@ -90,6 +99,9 @@ def test_streamed_files_match_the_assignment(tmp_path, ingested_parquet):
         np.testing.assert_array_equal(ids[name], source[ROW_ID].to_numpy()[labels == k])
         assert pq.ParquetFile(tmp_path / f"{name}.parquet").schema_arrow == source.schema
         assert summary["partitions"][name]["rows"] == int((labels == k).sum())
+    assert set(summary) == {"source_file", "seed", "fractions", "strata", "partitions", "run"}
+    for name in PARTITIONS:  # sizes and treatment share only: no outcome by arm
+        assert set(summary["partitions"][name]) == {"rows", "treatment_share"}
     every_id = np.concatenate(list(ids.values()))
     assert np.unique(every_id).size == every_id.size == source.num_rows
 
@@ -109,8 +121,27 @@ def test_partition_does_not_depend_on_row_group_size(tmp_path, synthetic_csv_gz)
     np.testing.assert_array_equal(ids[0], ids[1])
 
 
-def test_leaves_nothing_behind_on_failure(tmp_path, ingested_parquet):
+def test_leaves_nothing_behind_on_a_failure_mid_stream(tmp_path, ingested_parquet, monkeypatch):
+    original = pq.ParquetFile.read_row_group
+
+    def fail_on_the_second_group(self, group, *args, **kwargs):
+        if group == 1:
+            raise OSError("disk went away")
+        return original(self, group, *args, **kwargs)
+
+    monkeypatch.setattr(pq.ParquetFile, "read_row_group", fail_on_the_second_group)
     out = tmp_path / "out"
-    with pytest.raises(ValueError):
-        split(ingested_parquet, out, fractions=(0.5, 0.5, 0.5), seed=0)
-    assert not out.exists() or list(out.iterdir()) == []
+    with pytest.raises(OSError, match="disk went away"):
+        split(ingested_parquet, out, fractions=FRACTIONS, seed=0)
+    assert list(out.iterdir()) == []
+
+
+def test_refuses_to_write_an_empty_partition(tmp_path):
+    src = write_csv_gz(
+        tmp_path / "one.csv.gz", ",".join(SOURCE_COLUMNS), format_rows(make_columns(1))
+    )
+    ingest(src, tmp_path / "one.parquet")
+    out = tmp_path / "out"
+    with pytest.raises(ValueError, match="empty"):
+        split(tmp_path / "one.parquet", out, fractions=FRACTIONS, seed=0)
+    assert not out.exists()
