@@ -3,11 +3,9 @@
 **Who should a campaign contact when the budget is fixed? The users it changes,
 not the users most likely to convert.**
 
-> **Status (October 2026): the average effect, the power analysis, the learner
-> selection and the test evaluation are measured; the simulation study is
-> running.** Every setting is fixed in [`docs/design.md`](docs/design.md)
-> and `config.py` before the result it governs, and the history shows it. A
-> result that is not measured yet is blank, never filled from an expectation.
+> **Status (October 2026): every result below is measured.** Every setting
+> was fixed in [`docs/design.md`](docs/design.md) and `config.py` before the
+> result it governs, and the history shows it.
 
 **Headline: on Criteo, ranking by predicted uplift does not beat ranking by
 propensity to convert.** On the held-out test partition, opened once, contacting
@@ -78,7 +76,7 @@ varies by at least 0.68 points around 0.85 (a linear-projection bound whose nois
 floor is 0.04 points), more than the 0.45 points the threshold was translated
 into when it was fixed, a translation that assumed a normal spread. The figure
 shows the skew: a tail of users assigned to the treatment more often. Every
-effect will therefore be reported with sensitivity versions that use an
+effect is therefore reported with sensitivity versions that use an
 estimated propensity, declared before any effect was computed (`docs/design.md`
 §6.5).
 
@@ -117,10 +115,10 @@ Each one is argued in `docs/design.md`.
 3. **Estimators validated against simulated truth before they touch real data**
    (§6). The error of an uplift model cannot be computed on real data, because a
    user's counterfactual is never observed. A Monte Carlo study over six regimes,
-   where the truth is known, will measure each learner's error (PEHE) and predict
-   which one should win on Criteo. On the real data the learner is chosen with
+   where the truth is known, measured each learner's error (PEHE) and predicted
+   which one would win on Criteo. On the real data the learner is chosen with
    the transformed outcome, on the validation partition only.
-4. **Four meta-learners, each to be written by hand** (§5): S, T, X and a doubly
+4. **Four meta-learners, each written by hand** (§5): S, T, X and a doubly
    robust learner with cross-fitting, all on LightGBM, so that the comparison is
    between meta-learners and not between base models.
 5. **Every result with an error bar, every assumption fixed first** (§7 to §9).
@@ -130,7 +128,7 @@ Each one is argued in `docs/design.md`.
    the simulation grid with its size, the learners' setting, the selection, the
    test evaluation, and the costs and budgets of the decision layer. The rule for
    the primary outcome, for one, was pushed while the ATE it compares against
-   was still running. The budget-return curve will be published whole, including
+   was still running. The budget-return curve is published whole, including
    where uplift targeting does not win.
 
 ## Results
@@ -138,8 +136,8 @@ Each one is argued in `docs/design.md`.
 | Result | Value |
 |---|---|
 | Incremental conversions per 1,000 contacts at a 10 % budget, uplift against propensity ranking | 7.5 against 8.2 (random: 1.2); uplift never ahead on the grid |
-| PEHE of the four learners across six simulated regimes | not measured |
-| Learner predicted by the simulation, and whether it won on Criteo | not measured |
+| PEHE of the four learners across six simulated regimes | S smallest in all eight configurations; only in three does any learner beat predicting the mean effect for everyone |
+| Learner predicted by the simulation, and whether it won on Criteo | S-learner; chosen on validation, largest AUUC on test: the prediction held |
 | Power analysis: smallest detectable heterogeneity, per outcome | conversion: a decile against the rest, not a percentile; visit: down to 2 % subgroups |
 | AUUC of the chosen learner (S), with its bootstrap interval | 0.00045 (0.00038 to 0.00052), the highest of the four |
 
@@ -186,6 +184,50 @@ the weighted or subclassified ATE the decile ratio would be 0.92 or 0.95.
 Visit supports subgroups down to 2 % (0.93) and not percentiles (1.37).
 
 ![Minimum detectable effect of a subgroup contrast, over the ATE](reports/figures/fig3_mde_by_subgroup.png)
+
+### The simulation study: which learner, and how good any of them is
+
+([`reports/simulation.json`](reports/simulation.json)). Eight configurations, each
+answering one question of §6.2, with 40 replications of 100,000 units each,
+fitted on one draw and scored on an independent one. The PEHE is divided by the
+spread of the true effect, so **1 is exactly the error of predicting the mean
+effect for everyone**.
+
+- **The S-learner has the smallest PEHE in all eight configurations, and the
+  X-learner the second smallest in all eight,** with paired differences of tens
+  of Monte Carlo standard errors. That is the prediction for Criteo: in the
+  configuration closest to conversion (a rate of 0.3 %, 85/15), the S-learner
+  wins. On Criteo it was chosen on validation and had the largest area on test,
+  so **the prediction held**.
+- **The transformed-outcome criterion picks the PEHE's winner** in every
+  replication of seven configurations and in 95 % of the confounded one, so the
+  selection on Criteo rests on a criterion that works where it can be checked.
+- **No learner is good in absolute terms.** Only in three configurations does the
+  best one do as well as the mean effect for everyone or better (common outcome
+  0.95, complex baseline 1.00, sleeping dogs 0.71). In the reference
+  configuration (a rate of 5 %, 85/15) the S-learner's error is 1.96 times the
+  constant's, and at the rate of conversion it is 5.1 times; the others are at
+  14 to 29.
+- **The S-learner shrinks, as feared, and wins anyway.** Its mean prediction is
+  about 13 % under the mean effect, in the reference configuration and with a
+  complex baseline alike. The X- and DR-learners are nearly unbiased on average
+  and the T-learner overshoots by about a tenth, but all three are far noisier. One model whose two predictions share every split cancels much of
+  the baseline's noise; two or four separate fits add theirs.
+- **With a null effect, the T-, X- and DR-learners invent heterogeneity**, with a
+  PEHE of 0.026 to 0.040 on a base rate of 0.05; the S-learner's is 0.0027.
+- **Imbalance hurts the T-learner a little and the X-learner does not rescue it
+  enough**: from 50/50 to 85/15 the T-learner goes from 4.97 to 5.80 and the
+  X-learner from 3.17 to 4.15.
+- **The DR-learner does not correct the confounding; it is the worst there**
+  (14.7, against 1.93 for the S-learner, which barely moves from its reference
+  1.96). The estimated propensity reaches 0.99, and the weights of its
+  pseudo-outcome explode.
+
+These are statements about this generator at this sample size, with one
+LightGBM setting for all four learners. Criteo's train partition is 84 times
+larger.
+
+![PEHE by configuration and learner](reports/figures/fig4_pehe_by_scenario.png)
 
 ### The learner, chosen on validation
 
@@ -257,6 +299,11 @@ the map, from the simulation, of where that approximation holds and where it
 breaks. In neither case are the budget, the costs or the thresholds moved until
 the conclusion looks better.
 
+**What happened.** The second case: ranking by propensity is as good or better.
+The simulation's grid, fixed in advance and not extended, has no propensity
+policy, so the map of where that approximation holds is not drawn here; the
+hypothesis in the test section is where it would start.
+
 ## Limitations, known in advance
 
 - The effect measured is that of being assigned to the campaign (intention to
@@ -321,7 +368,7 @@ src/uplift/
 ├── learners/         # the S-, T-, X- and DR-learners, written by hand
 ├── simulate/         # the generator with known truth, and the simulation study
 ├── data/             # streaming ingest (CSV.gz to Parquet), stratified split, folds and subsamples
-└── evaluate/         # evaluators: balance, propensity, effect estimators and power so far
+└── evaluate/         # evaluators: balance, effects, power, selection and curves
 
 tests/                # including the exposure leakage guard; all on synthetic data
 scripts/              # checksum-verified download, peak memory probe
