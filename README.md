@@ -254,9 +254,10 @@ interval of the ATE (0.100 to 0.130), so by §2.3 each of them predicts too smal
 an effect on average. Policy 4 uses only the order of $\hat\tau$, and its
 incremental conversions are counted from the outcomes, so the levels of
 $\hat\tau$ are not to be read as effects. By decile of $\hat\tau$, the second
-check, the uplift sits almost entirely in the top decile, where the S-learner
-predicts 0.87 points and 0.73 are observed (0.58 to 0.88), more than six times
-the average effect.
+check, most of the uplift sits in the top decile: it holds 81 % of the
+incremental conversions summed over the S-learner's deciles, and there the
+S-learner predicts 0.87 points and 0.73 are observed (0.58 to 0.88), more than
+six times the average effect.
 Several learners give fewer than ten deciles, because their $\hat\tau$ takes
 few distinct values and ties are never split.
 
