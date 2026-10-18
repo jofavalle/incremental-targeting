@@ -287,9 +287,13 @@ conversions per 1,000 contacts, against 1.2; at 0.5 %, 55.9 and 46.4.
 does best at 20 % of the users and policy 4 at 25 % (16 % to 28 %), and policy 3's
 best net value is 19.8 higher per 1,000 users (paired interval -44.2 to 4.7 for
 policy 4 minus policy 3). Over the whole sweep, values from 250 to 4,000 and
-costs from 0.5 to 2, policy 4 is behind by 8 to 57 per 1,000 users; the interval
-excludes zero at three of the fifteen points, never in its favour. Each policy is
-taken at the best budget of its own test curve, which flatters both.
+costs from 0.5 to 2, policy 4 is behind by 8 to 57 per 1,000 users. The net
+value is $c\,[(v/c)\,U(K) - K]$, so the best budget and the sign of the
+difference depend on the ratio $v/c$ alone: the fifteen points are seven
+ratios, and the cost only scales each. The interval excludes zero at three
+points, never in policy 4's favour, and the three are one ratio, a conversion
+worth 500 contacts. Each policy is taken at the best budget of its own test
+curve, which flatters both.
 
 ![Sensitivity of the difference to the money assumptions](reports/figures/fig8_tornado.png)
 
