@@ -142,7 +142,7 @@ Each one is argued in `docs/design.md`.
 | Result | Value |
 |---|---|
 | Incremental conversions per 1,000 contacts at a 10 % budget, uplift against propensity ranking | 7.5 against 8.2 (random: 1.2); uplift never ahead on the grid |
-| PEHE of the four learners across six simulated regimes | S smallest in all eight configurations; only in three does any learner beat predicting the mean effect for everyone |
+| PEHE of the four learners across six simulated scenarios | S smallest in all eight configurations; only in three does any learner match or beat predicting the mean effect for everyone |
 | Learner the simulation favours, and whether it won on Criteo | S-learner; chosen on validation, largest AUUC on test with the X-learner's not separated from it. The simulation's results came after the test |
 | Power analysis: smallest detectable heterogeneity, per outcome | conversion: a decile against the rest, not a percentile; visit: down to 2 % subgroups |
 | AUUC of the chosen learner (S), with its bootstrap interval | 0.00045 (0.00038 to 0.00052), the highest of the four |
