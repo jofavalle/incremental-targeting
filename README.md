@@ -115,12 +115,15 @@ Each one is argued in `docs/design.md`.
    and any subset must be drawn by permutation, never as a contiguous slice.
    The split is random, stratified by treatment and both outcomes, 60/20/20,
    and the test partition is looked at once.
-3. **Estimators validated against simulated truth before they touch real data**
-   (§6). The error of an uplift model cannot be computed on real data, because a
-   user's counterfactual is never observed. A Monte Carlo study over six regimes,
-   where the truth is known, measured each learner's error (PEHE) and predicted
-   which one would win on Criteo. On the real data the learner is chosen with
-   the transformed outcome, on the validation partition only.
+3. **Estimators checked against simulated truth** (§6). The error of an uplift
+   model cannot be computed on real data, because a user's counterfactual is
+   never observed. A Monte Carlo study over six scenarios, where the truth is
+   known, measures each learner's error (PEHE) and whether the criterion used on
+   real data picks the right learner. Its generator, grid and size were
+   committed before any learner was fitted on real data, but its results came in
+   after the test partition was opened: it is a check on settings fixed in
+   advance, not a prediction made before the test. On the real data the learner
+   is chosen with the transformed outcome, on the validation partition only.
 4. **Four meta-learners, each written by hand** (§5): S, T, X and a doubly
    robust learner with cross-fitting, all on LightGBM, so that the comparison is
    between meta-learners and not between base models.
@@ -140,7 +143,7 @@ Each one is argued in `docs/design.md`.
 |---|---|
 | Incremental conversions per 1,000 contacts at a 10 % budget, uplift against propensity ranking | 7.5 against 8.2 (random: 1.2); uplift never ahead on the grid |
 | PEHE of the four learners across six simulated regimes | S smallest in all eight configurations; only in three does any learner beat predicting the mean effect for everyone |
-| Learner predicted by the simulation, and whether it won on Criteo | S-learner; chosen on validation, largest AUUC on test: the prediction held |
+| Learner the simulation favours, and whether it won on Criteo | S-learner; chosen on validation, largest AUUC on test with the X-learner's not separated from it. The simulation's results came after the test |
 | Power analysis: smallest detectable heterogeneity, per outcome | conversion: a decile against the rest, not a percentile; visit: down to 2 % subgroups |
 | AUUC of the chosen learner (S), with its bootstrap interval | 0.00045 (0.00038 to 0.00052), the highest of the four |
 
@@ -198,10 +201,13 @@ effect for everyone**.
 
 - **The S-learner has the smallest PEHE in all eight configurations, and the
   X-learner the second smallest in all eight,** with paired differences of tens
-  of Monte Carlo standard errors. That is the prediction for Criteo: in the
-  configuration closest to conversion (a rate of 0.3 %, 85/15), the S-learner
-  wins. On Criteo it was chosen on validation and had the largest area on test,
-  so **the prediction held**.
+  of Monte Carlo standard errors. In the configuration closest to conversion (a
+  rate of 0.3 %, 85/15) the S-learner wins too. On Criteo it was chosen on
+  validation and had the largest area on test, the X-learner's not separated
+  from it, so **the simulation and Criteo agree**. It is an agreement, not a
+  prediction: the study's generator, grid and size were committed before any
+  learner was fitted on real data, so it could not adapt to the test, but its
+  results came in after the test partition was opened.
 - **The transformed-outcome criterion picks the PEHE's winner** in every
   replication of seven configurations and in 95 % of the confounded one, so the
   selection on Criteo rests on a criterion that works where it can be checked.
