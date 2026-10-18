@@ -83,15 +83,18 @@ estimated propensity, declared before any effect was computed (`docs/design.md`
 ![Estimated propensity by arm, on validation](reports/figures/fig1_propensity_overlap.png)
 
 **Ties and repeated vectors** ([`reports/eda_summary.json`](reports/eda_summary.json)).
-Storing the features as `float32` merges distinct source values in one feature
-only: `f10` keeps 483,634 of its 517,372 values, and 80,469 rows (0.6 %) hold a
-value that now shares its `float32` with another. The other eleven keep every
+Storing the features as `float32` merges distinct source values in two
+features. In `f2`, 2,051,900 source values become 808,663, and 4,836,685 rows
+(34.6 %) hold a value that now shares its `float32` with another; in `f10`,
+517,372 become 483,634, and 80,469 rows (0.6 %). The other ten keep every
 value; four of them take fewer than 300. A quarter of the rows (3,560,505) share
 their whole twelve-feature vector with another row, in groups of up to 24, and
-18.6 % of the validation and test rows have a vector that also appears in
-train. The data cannot say whether those are repeated users or coarse features;
-if they are repeated users, the evaluation on test is partly on users the models
-have seen, and its figures lean optimistic.
+18.5 % of the validation rows and 18.6 % of the test rows have a vector that
+also appears in train. The vectors are compared in `float32`, so part of that
+repetition may be the merging above and not the source. The data cannot say
+whether the rest are repeated users or coarse features; if they are repeated
+users, the evaluation on test is partly on users the models have seen, and its
+figures lean optimistic.
 
 ## Key decisions
 
