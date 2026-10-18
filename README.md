@@ -282,8 +282,10 @@ $\hat\tau$) never yields more than policy 3 (top $K$ by a classifier of
 conversion): it is behind at every capacity below 100 %, where the two
 coincide by construction, by up to 177 conversions, and the paired interval of the difference excludes zero at 2 %,
 10 % and 20 %, always in favour of propensity. Both beat random targeting ten
-times or more at budgets of 5 % and below: at 5 %, 12.4 and 12.2 incremental
-conversions per 1,000 contacts, against 1.2; at 0.5 %, 55.9 and 46.4.
+times or more at budgets of 5 % and below: at 5 %, 12.4 incremental conversions
+per 1,000 contacts by propensity and 12.2 by uplift, against 1.2; at 0.5 %, 55.9
+and 46.4 in the same order, where the paired interval of their difference
+includes zero.
 
 ![Incremental conversions against capacity, four policies](reports/figures/fig7_budget_return.png)
 
