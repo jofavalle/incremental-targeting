@@ -248,12 +248,15 @@ fitted on train for conversion and scored on validation by the transformed
 outcome (§6.3). **The S-learner has the lowest criterion**, and the paired
 bootstrap interval of its difference from each of the other three excludes
 zero; the gaps are small against the criterion itself, as they must be when $Z$
-is mostly noise. Two cheap checks on validation (§6.4): the mean of
-$\hat\tau$ is 0.094 to 0.099 points for the four learners, just under the
-interval of the ATE (0.100 to 0.130), and close to the weighted and
-subclassified versions above; and by decile of $\hat\tau$, the uplift sits
-almost entirely in the top decile, where the S-learner predicts 0.87 points and
-0.73 are observed (0.58 to 0.88), more than six times the average effect.
+is mostly noise. Two cheap checks on validation (§6.4). The first fails for all
+four learners: the mean of $\hat\tau$ is 0.094 to 0.099 points, under the
+interval of the ATE (0.100 to 0.130), so by §2.3 each of them predicts too small
+an effect on average. Policy 4 uses only the order of $\hat\tau$, and its
+incremental conversions are counted from the outcomes, so the levels of
+$\hat\tau$ are not to be read as effects. By decile of $\hat\tau$, the second
+check, the uplift sits almost entirely in the top decile, where the S-learner
+predicts 0.87 points and 0.73 are observed (0.58 to 0.88), more than six times
+the average effect.
 Several learners give fewer than ten deciles, because their $\hat\tau$ takes
 few distinct values and ties are never split.
 
