@@ -290,7 +290,8 @@ includes zero.
 ![Incremental conversions against capacity, four policies](reports/figures/fig7_budget_return.png)
 
 **The money assumptions.** With a conversion worth 1,000 contact costs, policy 3
-does best at 20 % of the users and policy 4 at 25 % (16 % to 28 %), and policy 3's
+does best at 20 % of the users (15 % to 27 %) and policy 4 at 25 % (16 % to 28 %),
+intervals that overlap almost entirely, and policy 3's
 best net value is 19.8 higher per 1,000 users (paired interval -44.2 to 4.7 for
 policy 4 minus policy 3). Over the whole sweep, values from 250 to 4,000 and
 costs from 0.5 to 2, policy 4 is behind by 8 to 57 per 1,000 users. The net
