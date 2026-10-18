@@ -223,8 +223,11 @@ effect for everyone**.
   X-learner from 3.17 to 4.15.
 - **The DR-learner does not correct the confounding; it is the worst there**
   (14.7, against 1.93 for the S-learner, which barely moves from its reference
-  1.96). The estimated propensity reaches 0.99, and the weights of its
-  pseudo-outcome explode.
+  1.96). There the true propensity nears 1 where $x_1$ is large (§6.2), and
+  the pseudo-outcome weighs each control's residual by $1/(1 - \hat e)$, which
+  only the clip of $\hat e$ at 0.99 keeps at 100 or below. The record does not keep
+  the estimated propensities, so how close they came to the clip is not
+  measured.
 
 These are statements about this generator at this sample size, with one
 LightGBM setting for all four learners. Criteo's train partition is 84 times
